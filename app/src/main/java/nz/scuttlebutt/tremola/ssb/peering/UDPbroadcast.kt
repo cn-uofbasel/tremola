@@ -3,7 +3,6 @@ package nz.scuttlebutt.tremola.ssb.peering
 import android.content.Context
 import android.net.DhcpInfo
 import android.net.wifi.WifiManager
-import android.os.SystemClock
 import android.text.format.Formatter.formatIpAddress
 import android.util.Base64
 import android.util.Log
@@ -12,7 +11,6 @@ import nz.scuttlebutt.tremola.WebAppInterface
 import nz.scuttlebutt.tremola.utils.Constants
 import java.lang.Thread.sleep
 import java.net.DatagramPacket
-import java.net.DatagramSocket
 import java.net.InetAddress
 import java.util.concurrent.locks.ReentrantLock
 
@@ -25,6 +23,7 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
     fun beacon(pubkey: ByteArray, lck: ReentrantLock, myTcpPort: Int) {
 
         fun mkDgram(): DatagramPacket {
+            // get the current address (for each beacon msg)
             val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val dhcp = wifiManager.getDhcpInfo() // assumes IPv4?
             val broadcast = dhcp.ipAddress or (0xff shl 24) // (-1 and dhcp.netmask.inv()) // dhcp.ipAddress and dhcp.netmask or dhcp.netmask.inv()
@@ -34,24 +33,25 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
             // val dest = InetAddress.getByName("255.255.255.255")
             val bcastAddr = InetAddress.getByAddress(quads);
             val myAddr = wifiManager.connectionInfo.ipAddress
-            Log.d("UDP BEACON", "my=${formatIpAddress(myAddr)}, broadcast=${bcastAddr}, mask=${dhcp.netmask.inv()}")
+            // blocking?? Log.d("UDP BEACON", "my=${formatIpAddress(myAddr)}, broadcast=${bcastAddr}, mask=${dhcp.netmask.inv()}")
             myMark = "net:${formatIpAddress(myAddr)}:${myTcpPort}~shs:" +
                     Base64.encodeToString(pubkey, Base64.NO_WRAP)
             val buf = myMark!!.encodeToByteArray()
-            return DatagramPacket(buf, buf.size, bcastAddr, Constants.SSB_IPV4_UDPPORT)
+            // Log.d("UDP BEACON", "${myMark}")
+            val d = DatagramPacket(buf, buf.size, bcastAddr, Constants.SSB_IPV4_UDPPORT)
+            return d
         }
 
         while (true) {
             try {
-                var dgram = mkDgram()
+                val dgram = mkDgram()
                 val s = context.broadcast_socket
-                Log.d("beacon sock", "bound=${s?.isBound}, ${s?.inetAddress}/${s?.port}/${s?.localPort} brcast${s?.broadcast}")
-                context.broadcast_socket?.send(dgram);
-                Log.d("beacon", "sent") }
+                s?.send(dgram)
+                // blocking?? Log.d("beacon sock", "bound=${s?.isBound}, ${s?.localAddress}/${s?.port}/${s?.localPort} brcast${s?.broadcast}")
+                Log.d("beacon", "sent ${myMark}") }
             catch (e: Exception) { // wait for better times
                 Log.d("Beacon exc", e.toString())
                 sleep(3000)
-                // dgram = mkDgram()
                 continue
             }
             sleep(3000)
@@ -75,11 +75,10 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
         val ingram = DatagramPacket(buf, buf.size)
         while (true) {
             val s = context.broadcast_socket
-            Log.d("listen", "${s}, ports=${s?.port}/${s?.localPort} closed=${s?.isClosed} bound=${s?.isBound}")
+            // blocks?? Log.d("listen", "${s}, ports=${s?.port}/${s?.localPort} closed=${s?.isClosed} bound=${s?.isBound}")
             try { context.broadcast_socket?.receive(ingram) }
             catch (e: Exception) {
-                Log.d("Broadcast listen", "e=${e}, bsock=${context.broadcast_socket}")
-                SystemClock.sleep(3000) // wait for better conditions
+                sleep(3000) // wait for better conditions
                 continue
             }
             val incoming = ingram.data.decodeToString(0, ingram.length)
@@ -97,6 +96,5 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
                 }
             }
         }
-        Log.d("LISTEN", "ended")
     }
 }

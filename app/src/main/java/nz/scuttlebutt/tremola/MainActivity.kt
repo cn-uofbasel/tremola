@@ -44,6 +44,7 @@ class MainActivity : Activity() {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         setContentView(R.layout.activity_main)
         tremolaState = TremolaState(this)
+        mkSockets()
 
         Log.d("IDENTITY", "is ${tremolaState.idStore.identity.toRef()}")
 
@@ -74,17 +75,15 @@ class MainActivity : Activity() {
                 override fun onLinkPropertiesChanged(nw: Network, prop: LinkProperties) {
                     Log.d("onLinkPropertiesChanged", "${nw} ${prop}")
                     super.onLinkPropertiesChanged(nw, prop)
-                    try { broadcast_socket?.close() } catch (e: Exception) {}
-                    broadcast_socket = DatagramSocket(
-                        Constants.SSB_IPV4_UDPPORT, // where to listen
-                        InetAddress.getByName("0.0.0.0")
-                    )
-                    broadcast_socket?.broadcast = true
-                    Log.d("new bcast sock", "${broadcast_socket}, ${broadcast_socket?.port}/${broadcast_socket?.localPort}")
-                    val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
-                    try { server_socket?.close() } catch (e: Exception) {}
-                    server_socket =  ServerSocket(Constants.SSB_IPV4_TCPPORT)
-                    Log.d("SERVER addr", "${Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)}:${server_socket!!.localPort}")
+                    /*
+                    server_socket?.let {
+                        if (it.inetAddress in prop.linkAddresses) {
+                            Log.d("onLinkPropertiesChanged", "no need for new sock")
+                            return
+                        }
+                    }
+                    */
+                    mkSockets()
                 }
                 /*
                 override fun onAvailable(network: Network) {
@@ -98,13 +97,22 @@ class MainActivity : Activity() {
         val lck = ReentrantLock()
 
         val t0 = thread(isDaemon=true) {
-            udp!!.beacon(tremolaState.idStore.identity.verifyKey, lck, Constants.SSB_IPV4_TCPPORT)
+            try {
+                udp!!.beacon(tremolaState.idStore.identity.verifyKey, lck, Constants.SSB_IPV4_TCPPORT)
+            } catch (e: Exception) {
+                Log.d("beacon thread", "died ${e}")
+            }
         }
+
         val t1 = thread(isDaemon=true) {
             val wifi = getSystemService(WIFI_SERVICE) as WifiManager
             val mLock = wifi.createMulticastLock("lock")
             mLock.acquire()
-            udp!!.listen(lck)
+            try {
+                udp!!.listen(lck)
+            } catch (e: Exception) {
+                Log.d("listen thread", "died ${e}")
+            }
         }
         val t2 = thread(isDaemon=true)  { // accept loop, robust against reassigned server_socket
              while (true) {
@@ -193,5 +201,17 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-
+    private fun mkSockets() {
+        try { broadcast_socket?.close() } catch (e: Exception) {}
+        broadcast_socket = DatagramSocket(
+            Constants.SSB_IPV4_UDPPORT, // where to listen
+            InetAddress.getByName("0.0.0.0")
+        )
+        broadcast_socket?.broadcast = true
+        Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
+        val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
+        try { server_socket?.close() } catch (e: Exception) {}
+        server_socket =  ServerSocket(Constants.SSB_IPV4_TCPPORT)
+        Log.d("SERVER TCP addr", "${Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)}:${server_socket!!.localPort}")
+    }
 }
