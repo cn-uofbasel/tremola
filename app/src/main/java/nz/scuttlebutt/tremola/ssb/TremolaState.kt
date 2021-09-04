@@ -14,6 +14,8 @@ import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.core.IdStore
 import nz.scuttlebutt.tremola.ssb.db.daos.LogEntryDAO
 import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
+import nz.scuttlebutt.tremola.utils.Constants.Companion.EBT_FORCE_FRONTIER_INTERVAL
+import nz.scuttlebutt.tremola.utils.Constants.Companion.WIFI_DISCOVERY_INTERVAL
 
 
 class TremolaState(val context: Context) {
@@ -46,12 +48,12 @@ class TremolaState(val context: Context) {
                 val s = u.split("~")
                 val a = "@" + s[1].substring(4) + ".ed25519"
                 val h = s[0].split(":")
-                peers.add(h[1], h[2].toInt(), a)
+                peers.add(h[1], h[2].toInt(), a) // will filter out already connected peers
             }
-        }, 3, 5, TimeUnit.SECONDS)
+        }, 3, WIFI_DISCOVERY_INTERVAL, TimeUnit.SECONDS)
         executorPool.scheduleAtFixedRate({ // kick EBT (send current frontier) on regular intervals
             peers.kick()
-        }, 5, 10, TimeUnit.SECONDS)
+        }, 5, EBT_FORCE_FRONTIER_INTERVAL, TimeUnit.SECONDS)
     }
 
     companion object {
