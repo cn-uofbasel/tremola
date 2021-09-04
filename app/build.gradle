@@ -9,10 +9,12 @@ plugins {
 // apply plugin: "kotlin-kapt"
 
 android {
+    /*
     signingConfigs {
         release {
         }
     }
+    */
     compileSdkVersion 30
     buildToolsVersion "30.0.3"
 
@@ -22,8 +24,11 @@ android {
         targetSdkVersion 30
         versionCode 1
         versionName '0.1'
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+        }
 
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled false
     }
 
@@ -114,6 +119,7 @@ dependencies {
     implementation "androidx.room:room-guava:2.3.0"
     // testImplementation "androidx.room:room-testing:2.3.0"
 
+    /*
     //DAGGER
     implementation "com.google.dagger:dagger:2.35.1"
     kapt 'com.google.dagger:dagger-compiler:2.38.1'
@@ -121,6 +127,7 @@ dependencies {
     kapt 'com.google.dagger:dagger-android-processor:2.38.1'
     kapt "com.google.dagger:dagger-android-support:2.21"
     annotationProcessor "com.google.dagger:dagger-android-processor:2.21"
+    */
 
     // JAX-B dependencies for JDK 9+
     // implementation "jakarta.xml.bind:jakarta.xml.bind-api:2.3.2"
