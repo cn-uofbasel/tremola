@@ -28,7 +28,7 @@ function getSetting(nm) {
 function applySetting(nm, val) {
   if (nm == 'background_map') {
     if (val)
-      document.body.style.backgroundImage = "url('img/splash-as-background.png')";
+      document.body.style.backgroundImage = "url('img/splash-as-background.jpg')";
     else
       document.body.style.backgroundImage = null;
   } else if (nm == 'hide_forgotten_conv') {
