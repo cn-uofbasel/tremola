@@ -40,7 +40,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        setRequestedOrientation (ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        setRequestedOrientation (ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         setContentView(R.layout.activity_main)
         tremolaState = TremolaState(this)
@@ -105,7 +105,7 @@ class MainActivity : Activity() {
         }
 
         val t1 = thread(isDaemon=true) {
-            val wifi = getSystemService(WIFI_SERVICE) as WifiManager
+            val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
             val mLock = wifi.createMulticastLock("lock")
             mLock.acquire()
             try {
@@ -116,7 +116,7 @@ class MainActivity : Activity() {
         }
         val t2 = thread(isDaemon=true)  { // accept loop, robust against reassigned server_socket
              while (true) {
-                 var socket: Socket? = null
+                 var socket: Socket?
                  try {
                      socket = server_socket!!.accept()
                  } catch (e: Exception) {

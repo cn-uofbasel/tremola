@@ -1,19 +1,19 @@
 package nz.scuttlebutt.tremola.ssb.peering
 
 import android.content.Context
-import android.net.DhcpInfo
 import android.net.wifi.WifiManager
 import android.text.format.Formatter.formatIpAddress
 import android.util.Base64
 import android.util.Log
-import nz.scuttlebutt.tremola.MainActivity
-import nz.scuttlebutt.tremola.WebAppInterface
-import nz.scuttlebutt.tremola.utils.Constants
 import java.lang.Thread.sleep
 import java.net.DatagramPacket
 import java.net.InetAddress
 import java.util.concurrent.locks.ReentrantLock
 
+import nz.scuttlebutt.tremola.MainActivity
+import nz.scuttlebutt.tremola.WebAppInterface
+import nz.scuttlebutt.tremola.utils.Constants
+import nz.scuttlebutt.tremola.utils.Constants.Companion.UDP_BROADCAST_INTERVAL
 
 class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
 
@@ -37,9 +37,7 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
             myMark = "net:${formatIpAddress(myAddr)}:${myTcpPort}~shs:" +
                     Base64.encodeToString(pubkey, Base64.NO_WRAP)
             val buf = myMark!!.encodeToByteArray()
-            // Log.d("UDP BEACON", "${myMark}")
-            val d = DatagramPacket(buf, buf.size, bcastAddr, Constants.SSB_IPV4_UDPPORT)
-            return d
+            return DatagramPacket(buf, buf.size, bcastAddr, Constants.SSB_IPV4_UDPPORT)
         }
 
         while (true) {
@@ -51,7 +49,8 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
                 Log.d("beacon", "sent ${myMark}") }
             catch (e: Exception) { // wait for better times
                 Log.d("Beacon exc", e.toString())
-                sleep(3000)
+                sleep(UDP_BROADCAST_INTERVAL)
+                // dgram = mkDgram()
                 continue
             }
             sleep(3000)
@@ -67,18 +66,19 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
                 }
             } finally { lck.unlock() }
         }
-        Log.d("BEACON", "ended")
+        // Log.d("BEACON", "ended")
     }
 
     fun listen(lck: ReentrantLock) {
         val buf = ByteArray(256)
         val ingram = DatagramPacket(buf, buf.size)
         while (true) {
-            val s = context.broadcast_socket
+            // val s = context.broadcast_socket
             // blocks?? Log.d("listen", "${s}, ports=${s?.port}/${s?.localPort} closed=${s?.isClosed} bound=${s?.isBound}")
             try { context.broadcast_socket?.receive(ingram) }
             catch (e: Exception) {
-                sleep(3000) // wait for better conditions
+                // Log.d("Broadcast listen", "e=${e}, bsock=${context.broadcast_socket}")
+                sleep(UDP_BROADCAST_INTERVAL) // wait for better conditions
                 continue
             }
             val incoming = ingram.data.decodeToString(0, ingram.length)
@@ -96,5 +96,6 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
                 }
             }
         }
+        // Log.d("LISTEN", "ended")
     }
 }
