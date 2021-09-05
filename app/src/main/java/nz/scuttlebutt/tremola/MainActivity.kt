@@ -20,10 +20,7 @@ import nz.scuttlebutt.tremola.ssb.peering.RpcServices
 import nz.scuttlebutt.tremola.ssb.peering.UDPbroadcast
 import nz.scuttlebutt.tremola.utils.Constants
 import java.lang.Thread.sleep
-import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.ServerSocket
-import java.net.Socket
+import java.net.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 
@@ -198,16 +195,24 @@ class MainActivity : Activity() {
         Log.d("onDestroy", "")
         try { broadcast_socket?.close() } catch (e: Exception) {}
         broadcast_socket = null
+        try { server_socket?.close() } catch (e: Exception) {}
+        server_socket = null
         super.onDestroy()
     }
 
     private fun mkSockets() {
         try { broadcast_socket?.close() } catch (e: Exception) {}
-        broadcast_socket = DatagramSocket(
-            Constants.SSB_IPV4_UDPPORT, // where to listen
-            InetAddress.getByName("0.0.0.0")
-        )
-        broadcast_socket?.broadcast = true
+        broadcast_socket = null
+        try {
+            broadcast_socket = DatagramSocket()
+            broadcast_socket?.reuseAddress = true
+            broadcast_socket?.broadcast = true
+            broadcast_socket?.bind(InetSocketAddress("0.0.0.0",
+                Constants.SSB_IPV4_UDPPORT)) // where to listen
+        } catch (e: Exception) {
+            Log.d("create broadcast socket", "${e}")
+            broadcast_socket = null
+        }
         Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
         val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
         try { server_socket?.close() } catch (e: Exception) {}
