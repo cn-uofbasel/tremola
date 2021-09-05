@@ -35,7 +35,7 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
             // val dest = InetAddress.getByName("255.255.255.255")
             val bcastAddr = InetAddress.getByAddress(quads)
             val myAddr = wifiManager.connectionInfo.ipAddress
-            Log.d("UDP BEACON", "my=${formatIpAddress(myAddr)}, broadcast=${bcastAddr}, mask=${dhcp.netmask.inv()}")
+            // Log.d("UDP BEACON", "my=${formatIpAddress(myAddr)}, broadcast=${bcastAddr}, mask=${dhcp.netmask.inv()}")
             myMark = "net:${formatIpAddress(myAddr)}:${myTcpPort}~shs:" +
                     Base64.encodeToString(pubkey, Base64.NO_WRAP)
             val buf = myMark!!.encodeToByteArray()
@@ -46,8 +46,8 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
             try {
                 val dgram = mkDgram()
                 val s = context.broadcast_socket
-                Log.d("beacon sock", "bound=${s?.isBound}, ${s?.inetAddress}/${s?.port}/${s?.localPort} brcast${s?.broadcast}")
-                context.broadcast_socket?.send(dgram)
+                // Log.d("beacon sock", "bound=${s?.isBound}, ${s?.inetAddress}/${s?.port}/${s?.localPort} brcast${s?.broadcast}")
+                context.broadcast_socket!!.send(dgram)
                 Log.d("beacon", "sent") }
             catch (e: Exception) { // wait for better times
                 Log.d("Beacon exc", e.toString())
@@ -75,10 +75,10 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
         val ingram = DatagramPacket(buf, buf.size)
         while (true) {
             val s = context.broadcast_socket
-            Log.d("listen", "${s}, ports=${s?.port}/${s?.localPort} closed=${s?.isClosed} bound=${s?.isBound}")
-            try { context.broadcast_socket?.receive(ingram) }
+            // Log.d("listen", "${s}, ports=${s?.port}/${s?.localPort} closed=${s?.isClosed} bound=${s?.isBound}")
+            try { context.broadcast_socket!!.receive(ingram) }
             catch (e: Exception) {
-                Log.d("Broadcast listen", "e=${e}, bsock=${context.broadcast_socket}")
+                // Log.d("Broadcast listen", "e=${e}, bsock=${context.broadcast_socket}")
                 sleep(UDP_BROADCAST_INTERVAL) // wait for better conditions
                 continue
             }

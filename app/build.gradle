@@ -98,10 +98,12 @@ dependencies {
     implementation 'com.goterl:lazysodium-android:5.0.2@aar'
     implementation 'net.java.dev.jna:jna:5.8.0@aar'
 
+    /*
     //MOSHI
     implementation "com.squareup.moshi:moshi-kotlin:1.8.0"
     implementation "com.squareup.moshi:moshi-adapters:1.11.0"
     kapt 'com.squareup.moshi:moshi-kotlin-codegen:1.11.0'
+    */
 
     //OKIO
     // implementation group: 'com.squareup.okio', name: 'okio', version: '2.10.0'
