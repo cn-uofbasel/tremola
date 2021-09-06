@@ -3,7 +3,6 @@
     package="nz.scuttlebutt.tremola">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
@@ -12,7 +11,6 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/ -->
     <!-- uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/ -->
-    <!-- uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" / -->
 
     <meta-data
         android:name="android.webkit.WebView.MetricsOptOut"
@@ -24,7 +22,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Tremola.Launcher"
+        android:theme="@style/Launcher"
         android:background="@android:color/white"> <!-- holo_green_light" -->
         <activity android:name=".MainActivity">
             <intent-filter>

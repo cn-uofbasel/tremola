@@ -59,35 +59,11 @@ class MainActivity : Activity() {
         // react on connectivity changes:
         if (networkCallback == null) {
             networkCallback = object : ConnectivityManager.NetworkCallback() {
-                override fun onLost(network: Network) {
-                    Log.d("onLost", "${network}")
-                    super.onLost(network)
-                    /*
-                    try { broadcast_socket?.close() } catch (e: Exception) {}
-                    broadcast_socket = null
-                    try { server_socket?.close() } catch (e: Exception) {}
-                    server_socket = null
-                    */
-                }
                 override fun onLinkPropertiesChanged(nw: Network, prop: LinkProperties) {
                     Log.d("onLinkPropertiesChanged", "${nw} ${prop}")
                     super.onLinkPropertiesChanged(nw, prop)
-                    /*
-                    server_socket?.let {
-                        if (it.inetAddress in prop.linkAddresses) {
-                            Log.d("onLinkPropertiesChanged", "no need for new sock")
-                            return
-                        }
-                    }
-                    */
                     mkSockets()
                 }
-                /*
-                override fun onAvailable(network: Network) {
-                    Log.d("onAvailable", "${network}")
-                    super.onAvailable(network)
-                }
-                */
             }
         }
         udp = UDPbroadcast(this, tremolaState.wai)
@@ -152,7 +128,7 @@ class MainActivity : Activity() {
         resultCode: Int,
         data: Intent?
     ) {
-        val result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
+        val result /* : IntentResult? = null */ = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
         if (result != null) {
             Log.d("activityResult", result.toString())
             val cmd: String
