@@ -1,19 +1,17 @@
 package nz.scuttlebutt.tremola.ssb.peering
 
-import android.content.Context
-import android.net.wifi.WifiManager
 import android.text.format.Formatter.formatIpAddress
 import android.util.Base64
 import android.util.Log
 import java.lang.Thread.sleep
 import java.net.DatagramPacket
-import java.net.InetAddress
 import java.util.concurrent.locks.ReentrantLock
 
 import nz.scuttlebutt.tremola.MainActivity
 import nz.scuttlebutt.tremola.WebAppInterface
 import nz.scuttlebutt.tremola.utils.Constants
 import nz.scuttlebutt.tremola.utils.Constants.Companion.UDP_BROADCAST_INTERVAL
+import nz.scuttlebutt.tremola.utils.getBroadcastAddress
 
 class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
 
@@ -22,20 +20,15 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
 
     fun beacon(pubkey: ByteArray, lck: ReentrantLock, myTcpPort: Int) {
 
-        fun mkDgram(): DatagramPacket {
-            // get the current address (for each beacon msg)
-            val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val dhcp = wifiManager.getDhcpInfo() // assumes IPv4?
-            val broadcast = dhcp.ipAddress or (0xff shl 24) // (-1 and dhcp.netmask.inv()) // dhcp.ipAddress and dhcp.netmask or dhcp.netmask.inv()
-            val quads = ByteArray(4)
-            for (k in 0..3)
-                quads[k] = (broadcast shr k * 8).toByte()
-            // val dest = InetAddress.getByName("255.255.255.255")
-            val bcastAddr = InetAddress.getByAddress(quads);
-            val myAddr = wifiManager.connectionInfo.ipAddress
+        fun mkDgram(): DatagramPacket? {
+            val bcastAddr = getBroadcastAddress(context)
+            // get the current address anew (for each beacon msg)
+            val myAddr = context.wifiManager?.connectionInfo?.ipAddress
             // blocking?? Log.d("UDP BEACON", "my=${formatIpAddress(myAddr)}, broadcast=${bcastAddr}, mask=${dhcp.netmask.inv()}")
+            if (myAddr == null)
+                return null
             myMark = "net:${formatIpAddress(myAddr)}:${myTcpPort}~shs:" +
-                    Base64.encodeToString(pubkey, Base64.NO_WRAP)
+                        Base64.encodeToString(pubkey, Base64.NO_WRAP)
             val buf = myMark!!.encodeToByteArray()
             return DatagramPacket(buf, buf.size, bcastAddr, Constants.SSB_IPV4_UDPPORT)
         }

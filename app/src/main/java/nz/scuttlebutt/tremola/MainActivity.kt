@@ -1,7 +1,6 @@
 package nz.scuttlebutt.tremola
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.net.*
@@ -33,6 +32,8 @@ class MainActivity : Activity() {
         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
         .build()
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    var wifiManager: WifiManager? = null
+    private var mlock: WifiManager.MulticastLock? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +42,22 @@ class MainActivity : Activity() {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         setContentView(R.layout.activity_main)
         tremolaState = TremolaState(this)
+        wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+        mlock = wifiManager?.createMulticastLock("lock")
+        mlock?.acquire()
+        if (mlock != null)
+            Log.d("mLock","state is ${mlock!!.isHeld}")
+        else
+            Log.d("mLock","no mLock!")
+        /*
+        if (wm == null) wm = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+if (multicastLock == null) {
+     multicastLock = wm!!.createMulticastLock("multicastLock")
+}
+if (multicastLock != null && !multicastLock!!.isHeld) multicastLock!!.acquire()
+if (wifiLock == null) wifiLock = wm!!.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "wifiLock")
+if (wifiLock != null && !wifiLock!!.isHeld) wifiLock!!.acquire()
+        */
         mkSockets()
 
         Log.d("IDENTITY", "is ${tremolaState.idStore.identity.toRef()}")
@@ -48,7 +65,8 @@ class MainActivity : Activity() {
         val webView = findViewById<WebView>(R.id.webView)
         tremolaState.wai = WebAppInterface(this, tremolaState, webView)
 
-        webView.setBackgroundColor(0) // Color.parseColor("#FFffa0a0"))
+        // webView.setBackgroundColor(0) // Color.parseColor("#FFffa0a0"))
+        webView.clearCache(true)
         webView.webViewClient = WebViewClient()
         webView.addJavascriptInterface(tremolaState.wai, "Android")
         webView.settings.javaScriptEnabled = true
@@ -78,9 +96,6 @@ class MainActivity : Activity() {
         }
 
         val t1 = thread(isDaemon=true) {
-            val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-            val mLock = wifi.createMulticastLock("lock")
-            mLock.acquire()
             try {
                 udp!!.listen(lck)
             } catch (e: Exception) {
@@ -180,19 +195,19 @@ class MainActivity : Activity() {
         try { broadcast_socket?.close() } catch (e: Exception) {}
         broadcast_socket = null
         try {
-            broadcast_socket = DatagramSocket()
+            broadcast_socket = DatagramSocket(null)
             broadcast_socket?.reuseAddress = true
-            broadcast_socket?.broadcast = true
-            broadcast_socket?.bind(InetSocketAddress("0.0.0.0",
-                Constants.SSB_IPV4_UDPPORT)) // where to listen
+            broadcast_socket?.broadcast = true // really necessary ?
+            val any = InetAddress.getByAddress(ByteArray(4))
+            broadcast_socket?.bind(InetSocketAddress(any, Constants.SSB_IPV4_UDPPORT)) // where to listen
         } catch (e: Exception) {
             Log.d("create broadcast socket", "${e}")
             broadcast_socket = null
         }
         Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
-        val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
+        // val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         try { server_socket?.close() } catch (e: Exception) {}
         server_socket =  ServerSocket(Constants.SSB_IPV4_TCPPORT)
-        Log.d("SERVER TCP addr", "${Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)}:${server_socket!!.localPort}")
+        Log.d("SERVER TCP addr", "${Formatter.formatIpAddress(wifiManager?.connectionInfo!!.ipAddress)}:${server_socket!!.localPort}")
     }
 }

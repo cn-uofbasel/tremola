@@ -1,13 +1,6 @@
 package nz.scuttlebutt.tremola.utils
 
 import android.util.Base64
-import android.util.Log
-import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.sha256
-import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.verifySignDetached
-import org.json.JSONObject
-
-import nz.scuttlebutt.tremola.ssb.core.SSBid
-import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
 
 class HelperFunctions {
 
