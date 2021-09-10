@@ -16,9 +16,11 @@ interface ContactDAO {
     @Query("DELETE FROM contact")
     fun deleteAll()
 
+    @RewriteQueriesToDropUnusedColumns
     @Query("SELECT * FROM contact INNER JOIN Follow ON contact.lid = Follow.who AND Follow.state > 0")
     fun getFollowing(): LiveData<List<Contact>>
 
+    @RewriteQueriesToDropUnusedColumns
     @Query("SELECT * FROM contact INNER JOIN Follow ON contact.lid = Follow.whom AND Follow.state > 0")
     fun getFollowers(): LiveData<List<Contact>>
 
