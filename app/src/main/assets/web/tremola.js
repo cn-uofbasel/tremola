@@ -218,10 +218,8 @@ function load_chat(nm) {
   curr_chat = nm;
   var lop = [];
   for (var p in ch.posts) lop.push(p)
-  lop.sort((a,b) => ch.posts[a].when - ch.posts[b].when)
-  lop.forEach( (p) =>
-    load_post_item(ch.posts[p])
-  )
+  lop.sort( function (a,b) { return ch.posts[a].when - ch.posts[b].when } )
+  lop.forEach( function (p) { load_post_item(ch.posts[p]) } )
   load_chat_title(ch);
   setScenario("posts");
   document.getElementById("tremolaTitle").style.display = 'none';
@@ -254,10 +252,8 @@ function load_chat_list()
     if (p != meOnly && !tremola.chats[p]['forgotten'])
       lop.push(p)
   }
-  lop.sort((a,b) => tremola.chats[b]["touched"] - tremola.chats[a]["touched"])
-  lop.forEach( (p) =>
-    load_chat_item(p)
-  )
+  lop.sort( function (a,b) { return tremola.chats[b]["touched"] - tremola.chats[a]["touched"] } )
+  lop.forEach( function (p) { load_chat_item(p) } )
   // forgotten chats: unsorted
   if (!tremola.settings.hide_forgotten_conv)
     for (var p in tremola.chats)
@@ -280,7 +276,7 @@ function load_chat_item(nm) { // appends a button for conversation with name nm 
   row += badge + "</button>";
   row += ""
   item.innerHTML = row;
-  cl.append(item);
+  cl.appendChild(item);
   set_chats_badge(nm)
 }
 
@@ -312,7 +308,7 @@ function load_contact_item(c) { // [ id, { "alias": "thealias", "initial": "T", 
   // row += escapeHTML(c[1].alias) + "<br><font size=-2>" + c[0] + "</font></button>";
   // console.log(row);
   item.innerHTML = row;
-  document.getElementById('lst:contacts').append(item);
+  document.getElementById('lst:contacts').appendChild(item);
 }
 
 function fill_members() {
@@ -464,12 +460,12 @@ function unicodeStringToTypedArray(s) {
     return binstr;
 }
 
-let b32enc_map = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+var b32enc_map = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function b32enc_do40bits(b40) {
     var long = 0, s = '';
-    for (let i = 0; i < 5; i++) long = long * 256 + b40[i];
-    for (let i = 0; i < 8; i++, long /= 32) s = b32enc_map[long & 0x1f] + s;
+    for (var i = 0; i < 5; i++) long = long * 256 + b40[i];
+    for (var i = 0; i < 8; i++, long /= 32) s = b32enc_map[long & 0x1f] + s;
     return s;
 }
 
@@ -509,9 +505,7 @@ function recps2nm(rcps) { // use concat of sorted FIDs as internal name for conv
 }
 
 function recps2display(rcps) {
-  var lst = rcps.map(fid => {
-    return fid2display(fid)
-  });
+  var lst = rcps.map( function (fid) { return fid2display(fid) } );
   return '[' + lst.join(', ') + ']';
 }
 

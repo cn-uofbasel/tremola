@@ -20,13 +20,14 @@ android {
 
     defaultConfig {
         applicationId "nz.scuttlebutt.tremola"
-        minSdkVersion 24
+        minSdkVersion 23
         targetSdkVersion 30
         versionCode 2
         versionName '0.1.1'
         ndk {
             // abiFilters 'x86' // x86 needed for testing in the emulator
-            abiFilters 'arm64-v8a', 'armeabi-v7a' // 64bit support for release
+            // abiFilters 'arm64-v8a', 'armeabi-v7a' // 64bit support for release
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86'
         }
 
         // testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -87,14 +88,14 @@ dependencies {
     // implementation 'com.google.android.material:material:1.4.0'
     // implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
 
+    /*
     // SDK 24
     implementation 'com.journeyapps:zxing-android-embedded:4.2.0'
     implementation 'com.google.zxing:core:3.4.1'
-    /*
-    // SDK 19
+    */
+    // SDK 19 .. 23
     implementation 'com.journeyapps:zxing-android-embedded:3.6.0'
     implementation 'com.google.zxing:core:3.3.0'
-    */
 
     //LAZY SODIUM
     implementation 'com.goterl:lazysodium-android:5.0.2@aar'

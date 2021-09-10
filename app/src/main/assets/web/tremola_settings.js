@@ -44,15 +44,17 @@ function setSetting(nm, val) {
   document.getElementById(nm).checked = val;
 }
 
-async function settings_wipe() {
+/* async */ function settings_wipe() {
   closeOverlay();
-  backend("wipe");
+  backend("wipe"); // will not return
+  /*
   window.localStorage.setItem("tremola", "null");
   backend("ready"); // will call initialize()
   await new Promise(resolve => setTimeout(resolve, 500));
   // resetTremola();
   menu_redraw();
   setScenario('chats');
+  */
 }
 
 // eof
