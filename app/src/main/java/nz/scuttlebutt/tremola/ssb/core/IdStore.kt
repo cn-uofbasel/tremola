@@ -15,7 +15,7 @@ class IdStore(private val context: Context) {
     init {
         val id = readFromFile()
         if (id == null) {
-            Log.d("IdStore init", "no secret found")
+            // Log.d("IdStore init", "no secret found")
             identity = SSBid() // create
             writeToFile(identity)
         } else
@@ -43,11 +43,13 @@ class IdStore(private val context: Context) {
                 "# your public name: ${newId.toRef()}\n"
         val fileOutputStream: FileOutputStream
         try {
-            try { context.deleteFile("secret") } catch (e: java.lang.Exception) { Log.d("idSTore write", "no delete?")}
+            try { context.deleteFile("secret") } catch (e: java.lang.Exception) {
+                // Log.d("IdStore write", "no delete?")
+            }
             fileOutputStream = context.openFileOutput("secret", Context.MODE_PRIVATE)
             fileOutputStream.write(jsonSecret.encodeToByteArray())
             fileOutputStream.close()
-            Log.d("idStore write", "done")
+            // Log.d("IdStore write", "done")
             return true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -69,7 +71,7 @@ class IdStore(private val context: Context) {
                 )
             }
         } catch (e: java.lang.Exception) {
-            e.message?.let { Log.d("IdStore", it) }
+            // e.message?.let { Log.d("IdStore", it) }
         }
         return null
     }
