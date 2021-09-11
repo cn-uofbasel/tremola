@@ -3,6 +3,7 @@ package nz.scuttlebutt.tremola.ssb
 import android.content.Context
 import nz.scuttlebutt.tremola.MainActivity
 import nz.scuttlebutt.tremola.WebAppInterface
+import nz.scuttlebutt.tremola.ssb.core.BlobStore
 import java.util.concurrent.*
 
 import nz.scuttlebutt.tremola.ssb.peering.PeeringPool
@@ -23,6 +24,7 @@ class TremolaState(val context: Context) {
     private val executorPool: ScheduledExecutorService
     private val db = TremolaDatabase.getInstance(context)
     val idStore = IdStore(context)
+    val blobStore = BlobStore(context)
     val logDAO: LogEntryDAO = db.logDAO()
     val pubDAO: PubDAO = db.pubDAO()
     val contactDAO: ContactDAO = db.contactDAO()
