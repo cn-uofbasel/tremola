@@ -34,9 +34,9 @@ function menu_sync() {
 */
 
 function menu_new_conversation() {
-    fill_members()
-    prev_scenario = 'chats'
-    setScenario("members")
+    fill_members();
+    prev_scenario = 'chats';
+    setScenario("members");
     document.getElementById("div:textarea").style.display = 'none';
     document.getElementById("div:confirm-members").style.display = 'flex';
     document.getElementById("tremolaTitle").style.display = 'none';
@@ -44,6 +44,7 @@ function menu_new_conversation() {
     c.style.display = null;
     c.innerHTML = "<font size=+1><strong>Create New Conversation</strong></font><br>Select up to 7 members";
     document.getElementById('plus').style.display = 'none';
+    closeOverlay();
 }
 
 function menu_new_contact() {
@@ -235,7 +236,7 @@ function load_chat(nm) {
 function load_chat_title(ch) {
   var c = document.getElementById("conversationTitle"), bg, box;
   c.style.display = null;
-  c.classList = ch.forgotten ? ['gray'] : []
+  c.setAttribute('classList', ch.forgotten ? 'gray' : '') // old JS (SDK 23)
   box  = "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'><font size=+1><strong>" + escapeHTML(ch.alias) + "</strong></font></div>";
   box += "<div style='color: black; text-overflow: ellipsis; overflow: hidden;'>" + escapeHTML(recps2display(ch.members)) + "</div></div>";
   c.innerHTML = box;
@@ -266,7 +267,8 @@ function load_chat_item(nm) { // appends a button for conversation with name nm 
   cl = document.getElementById('lst:chats');
   mem = recps2display(tremola.chats[nm].members)
   item = document.createElement('div');
-  item.style = "padding: 0px 5px 10px 5px; margin: 3px 3px 6px 3px;";
+  // item.style = "padding: 0px 5px 10px 5px; margin: 3px 3px 6px 3px;";
+  item.setAttribute('class', 'chat_item_div'); // old JS (SDK 23)
   if (tremola.chats[nm].forgotten) bg = ' gray'; else bg = ' light';
   row  = "<button class='chat_item_button w100" + bg + "' onclick='load_chat(\"" + nm + "\");' style='overflow: hidden; position: relative;'>";
   row += "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'>" + tremola.chats[nm].alias + "</div>";
@@ -295,7 +297,7 @@ function load_contact_list() {
 
 function load_contact_item(c) { // [ id, { "alias": "thealias", "initial": "T", "color": "#123456" } ] }
   var row, item = document.createElement('div'), bg;
-  item.style = "padding: 0px 5px 10px 5px;";
+  item.setAttribute('style', 'padding: 0px 5px 10px 5px;'); // old JS (SDK 23)
   if (!("initial" in c[1])) { c[1]["initial"] = c[1].alias.substring(0,1).toUpperCase(); persist(); }
   if (!("color" in c[1])) { c[1]["color"] = colors[Math.floor(colors.length * Math.random())]; persist(); }
   // console.log("load_c_i", JSON.stringify(c[1]))

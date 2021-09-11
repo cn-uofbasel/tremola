@@ -1,5 +1,5 @@
-:root {
-    --background: #ebf4fa;
+:root { // note: Chrome <49 (bundled with SDK23) does not support var()
+    --background: #ebf4fa; // never used?
     --passive: #51a4d2;
     --active: #a4cbe2;
     --light: #ebf4fa;
@@ -23,16 +23,16 @@
     border-radius: 5px;
   }
   .active {
-    background-color: var(--active);
+    background-color: #a4cbe2; // var(--active);
   }
   .passive {
-    background-color: var(--passive);
+    background-color: #51a4d2; // var(--passive);
   }
   .neutral {
     background-color: var(--neutral);
   }
   .light {
-    background-color: var(--light);
+    background-color: #ebf4fa; // var(--light);
   }
   .gray {
     background-color: var(--gray);
@@ -154,6 +154,11 @@ textarea {
   font-size: medium;
   border-radius: 4pt;
   box-shadow: 0 0 5px rgba(0,0,0,0.7);
+}
+
+chat_item_div {
+  padding: 0px 5px 10px 5px;
+  margin: 3px 3px 6px 3px;
 }
 
 .contact_picture {
@@ -279,7 +284,7 @@ textarea {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--active);
+  background-color: #a4cbe2; // var(--active);
   -webkit-transition: .4s;
   transition: .4s;
 }
@@ -297,7 +302,7 @@ textarea {
 }
 
 input:checked + .slider {
-  background-color: var(--passive);
+  background-color: #51a4d2; // var(--passive);
 }
 
 input:focus + .slider {
