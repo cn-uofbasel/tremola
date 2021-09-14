@@ -27,6 +27,7 @@ import nz.scuttlebutt.tremola.ssb.peering.UDPbroadcast
 import nz.scuttlebutt.tremola.utils.Constants
 import nz.scuttlebutt.tremola.utils.Constants.Companion.LOCAL_URL_PREFIX
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.lang.Thread.sleep
 import java.net.*
 import java.util.concurrent.locks.ReentrantLock
@@ -210,6 +211,7 @@ class MainActivity : Activity() {
         var width: Int
         var bytes: ByteArray? = null
         var resized = BitmapFactory.decodeFile(path)
+        File(path).delete()
         while (true) {
             Log.d("img dims", "w=${resized.width}, h=${resized.height}")
             val stream = ByteArrayOutputStream()

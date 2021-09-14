@@ -1,15 +1,10 @@
 package nz.scuttlebutt.tremola.ssb.core
 
 import android.content.Context
-import android.util.Log
 import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.sha256
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
-import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toHex
-import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
-import java.io.OutputStream
-import java.util.*
 
 class BlobStore(val context: Context) {
     val blobDir: File
@@ -35,10 +30,18 @@ class BlobStore(val context: Context) {
         return bname
     }
 
-    fun fetch(fname: String): FileInputStream {
+    fun fetch(ref: String): FileInputStream {
         // Log.d("blobStore.fetch", "fname=${fname}")
-        val f = File(blobDir, fname.substring(1, fname.length-7).replace("/", "_"))
+        val f = File(blobDir, ref2fname(ref))
         // Log.d("blobStore.fetch", "path=${f.absolutePath}")
         return FileInputStream(f)
+    }
+
+    fun delete(ref: String) {
+        try { File(blobDir, ref2fname(ref)).delete() } catch (e: Exception) {}
+    }
+
+    private fun ref2fname(ref: String): String {
+        return ref.substring(1, ref.length-7).replace("/", "_")
     }
 }

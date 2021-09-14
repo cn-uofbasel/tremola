@@ -13,7 +13,7 @@ var new_contact_id = '';
 var colors = ["#d9ceb2", "#99b2b7", "#e6cba5", "#ede3b4", "#8b9e9b", "#bd7578", "#edc951",
               "#ffd573", "#c2a34f", "#fbb829", "#ffab03", "#7ab317", "#a0c55f", "#8ca315",
               "#5191c1", "#6493a7", "#bddb88"]
-
+var curr_img_candidate = null;
 var pubs = []
 
 // --- menu callbacks
@@ -202,9 +202,9 @@ function new_image_post(ref) {
   var draft = "![](" + ref + ")\n";
   var recps = tremola.chats[curr_chat].members.join(' ')
   backend("priv:post " + btoa(draft) + " " + recps);
+  curr_img_candidate = null;
   var c = document.getElementById('core');
   c.scrollTop = c.scrollHeight;
-  document.getElementById('draft').value = '';
   closeOverlay();
 }
 
@@ -251,6 +251,7 @@ function load_chat(nm) {
   // scroll to bottom:
   e = document.getElementById('core')
   e.scrollTop = e.scrollHeight;
+  // console.log("did scroll down, but did it do it?")
   // update unread badge:
   ch["lastRead"] = Date.now();
   persist();
@@ -662,7 +663,7 @@ function b2f_showSecret(json){
 
 function b2f_new_image_blob(ref) {
   console.log("new image: ", ref)
-  document.getElementById('draft').value = ref
+  curr_img_candidate = ref;
   ref = "http://appassets.androidplatform.net/blobs/" + ref;
   ref = "<object type='image/jpeg' data='" + ref + "' style='cursor: zoom-in; width: 95%; text-align: center; position: absolute;'></object>"
   document.getElementById('image-preview').innerHTML = ref

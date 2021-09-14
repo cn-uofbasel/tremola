@@ -172,6 +172,10 @@ function closeOverlay(){
   document.getElementById('new_contact-overlay').style.display = 'none';
   document.getElementById('old_contact-overlay').style.display = 'none';
   overlayIsActive = false;
+  if (curr_img_candidate != null) {
+    backend('del:blob ' + curr_img_candidate);
+    curr_img_candidate = null;
+  }
 }
 
 function showPreview() {

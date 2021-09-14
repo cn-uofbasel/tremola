@@ -148,6 +148,9 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
                     Log.e("Image", "Error while taking the image ${e}")
                 }
             }
+            "del:blob" -> {
+                tremolaState.blobStore.delete(args[1])
+            }
             "invite:redeem" -> {
                 try {
                     val i = args[1].split("~")
