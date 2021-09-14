@@ -11,5 +11,6 @@ class Constants{
         val WIFI_DISCOVERY_INTERVAL = 5L       // check every X sec
         val EBT_FORCE_FRONTIER_INTERVAL = 30L  // send frontier every X sec
         val frontierWindow = 86400000
+        val LOCAL_URL_PREFIX = "http://appassets.androidplatform.net/blobs/"
     }
 }

@@ -46,7 +46,9 @@ var scenarioMenu = {
                 ['Dump', 'menu_dump'],
                 ['Reset', 'menu_reset']]
 */
-  'posts'    : [['Rename', 'menu_edit_convname'],
+  'posts'    : [['Take picture', 'menu_take_picture'],
+                ['Pick image', 'menu_pick_image'],
+                ['Rename this chat', 'menu_edit_convname'],
                 ['(un)Forget', 'menu_forget_conv'],
                 ['Settings', 'menu_settings'],
                 ['About', 'menu_about']],
@@ -159,6 +161,7 @@ function closeOverlay(){
   document.getElementById('menu').style.display = 'none';
   document.getElementById('qr-overlay').style.display = 'none';
   document.getElementById('preview-overlay').style.display = 'none';
+  document.getElementById('image-overlay').style.display = 'none';
   document.getElementById('new_chat-overlay').style.display = 'none';
   document.getElementById('new_contact-overlay').style.display = 'none';
   document.getElementById('confirm_contact-overlay').style.display = 'none';
@@ -175,7 +178,7 @@ function showPreview() {
   var draft = escapeHTML(document.getElementById('draft').value);
   if (draft.length == 0) return;
   if (!getSetting("enable_preview")) {
-    new_post(draft);
+    new_text_post(draft);
     return;
   }
   var draft2 = draft.replace(/\n/g, "<br>\n");

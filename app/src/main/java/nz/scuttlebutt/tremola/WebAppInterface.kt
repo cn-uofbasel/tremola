@@ -3,11 +3,17 @@ package nz.scuttlebutt.tremola
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import com.google.zxing.integration.android.IntentIntegrator
 import org.json.JSONObject
 
@@ -16,6 +22,8 @@ import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
 import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.peering.RpcInitiator
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
+import java.io.File
+import java.util.*
 import java.util.concurrent.Executors
 
 
@@ -104,6 +112,41 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
                                             rawStr.encodeToByteArray())
                 evnt?.let { rx_event(it) } // persist it, propagate horizontally and also up
                 return
+            }
+            "get:media" -> {
+                val intent = Intent(Intent.ACTION_PICK)
+                intent.type = "image/*"
+                act.startActivityForResult(intent, 1001)
+            }
+            "get:camera" -> {
+                val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                val f = try {
+                    val timeStamp =
+                        Date().time.toString()
+                    val storageDir =
+                        // act.cacheDir
+                        act.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+                    File.createTempFile(
+                        timeStamp, /* prefix */
+                        ".jpg", /* suffix */
+                        storageDir /* directory */
+                    ).apply {
+                        // Save a file: path for use with ACTION_VIEW intents
+                        (act as MainActivity).currentPhotoPath = absolutePath
+                        Log.d("tmp img file", absolutePath)
+                    }
+                } catch (e: java.lang.Exception) { null }
+                try {
+                    val photoURI: Uri = FileProvider.getUriForFile(
+                        act,
+                        "nz.scuttlebutt.tremola.fileprovider",
+                        f!!
+                    )
+                    intent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
+                    act.startActivityForResult(intent, 1002)
+                } catch (e: Exception) {
+                    Log.e("Image", "Error while taking the image ${e}")
+                }
             }
             "invite:redeem" -> {
                 try {

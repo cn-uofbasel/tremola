@@ -39,8 +39,8 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
                 val s = context.broadcast_socket
                 s?.send(dgram)
                 // blocking?? Log.d("beacon sock", "bound=${s?.isBound}, ${s?.localAddress}/${s?.port}/${s?.localPort} brcast${s?.broadcast}")
-                Log.d("beacon", "sent ${myMark}") }
-            catch (e: Exception) { // wait for better times
+                // Log.d("beacon", "sent ${myMark}")
+            } catch (e: Exception) { // wait for better times
                 Log.d("Beacon exc", e.toString())
                 sleep(UDP_BROADCAST_INTERVAL)
                 // dgram = mkDgram()

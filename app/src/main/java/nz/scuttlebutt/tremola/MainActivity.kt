@@ -3,25 +3,35 @@ package nz.scuttlebutt.tremola
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
+import android.graphics.Bitmap.createBitmap
+import android.graphics.BitmapFactory
 import android.net.*
 import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.os.Handler
+import android.provider.MediaStore
 import android.text.format.Formatter
 import android.util.Log
 import android.view.Window
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+
 import com.google.zxing.integration.android.IntentIntegrator
 import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.peering.RpcResponder
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
 import nz.scuttlebutt.tremola.ssb.peering.UDPbroadcast
 import nz.scuttlebutt.tremola.utils.Constants
+import nz.scuttlebutt.tremola.utils.Constants.Companion.LOCAL_URL_PREFIX
+import java.io.ByteArrayOutputStream
 import java.lang.Thread.sleep
 import java.net.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
+
 
 class MainActivity : Activity() {
     private lateinit var tremolaState: TremolaState
@@ -34,6 +44,7 @@ class MainActivity : Activity() {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     var wifiManager: WifiManager? = null
     private var mlock: WifiManager.MulticastLock? = null
+    lateinit var currentPhotoPath: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,20 +55,7 @@ class MainActivity : Activity() {
         tremolaState = TremolaState(this)
         wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
         mlock = wifiManager?.createMulticastLock("lock")
-        mlock?.acquire()
-        if (mlock != null)
-            Log.d("mLock","state is ${mlock!!.isHeld}")
-        else
-            Log.d("mLock","no mLock!")
-        /*
-        if (wm == null) wm = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-if (multicastLock == null) {
-     multicastLock = wm!!.createMulticastLock("multicastLock")
-}
-if (multicastLock != null && !multicastLock!!.isHeld) multicastLock!!.acquire()
-if (wifiLock == null) wifiLock = wm!!.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "wifiLock")
-if (wifiLock != null && !wifiLock!!.isHeld) wifiLock!!.acquire()
-        */
+        if (!mlock!!.isHeld) mlock!!.acquire()
         mkSockets()
 
         Log.d("IDENTITY", "is ${tremolaState.idStore.identity.toRef()}")
@@ -65,16 +63,35 @@ if (wifiLock != null && !wifiLock!!.isHeld) wifiLock!!.acquire()
         val webView = findViewById<WebView>(R.id.webView)
         tremolaState.wai = WebAppInterface(this, tremolaState, webView)
 
-        // webView.setBackgroundColor(0) // Color.parseColor("#FFffa0a0"))
         webView.clearCache(true)
-        webView.webViewClient = WebViewClient()
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                Log.d("load", "request for URI ${request.url}")
+                val bName = request.url.toString().substring(LOCAL_URL_PREFIX.length)
+                try {
+                    val inputStream = tremolaState.blobStore.fetch(bName!!)
+                    val x = WebResourceResponse(
+                        "image/jpeg", null,
+                        inputStream
+                    )
+                    return x
+                } catch (e: Exception) {
+                    Log.d("fetch error", "${e}")
+                }
+                return null
+            }
+        }
         webView.addJavascriptInterface(tremolaState.wai, "Android")
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
+
         webView.loadUrl("file:///android_asset/web/tremola.html")
         // webSettings?.javaScriptCanOpenWindowsAutomatically = true
 
-        // react on connectivity changes:
+        // prepare for connectivity changes:
         if (networkCallback == null) {
             networkCallback = object : ConnectivityManager.NetworkCallback() {
                 override fun onLinkPropertiesChanged(nw: Network, prop: LinkProperties) {
@@ -153,8 +170,59 @@ if (wifiLock != null && !wifiLock!!.isHeld) wifiLock!!.acquire()
                 cmd = "qr_scan_success('" + result.contents + "');"
             }
             tremolaState.wai.eval(cmd)
+        }  else if (requestCode == 1001 && resultCode == RESULT_OK) { // media pick
+            val imageBitmap = data?.data //as Bitmap
+            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageBitmap)
+            val ref = storeAsBlob(bitmap)
+            tremolaState.wai.eval("b2f_new_image_blob('${ref}')")
+        } else if (requestCode == 1002 && resultCode == RESULT_OK) { // camera
+            /*
+            val imageBitmap = data?.extras?.get("data") as Bitmap
+            val ref = storeAsBlob(imageBitmap)
+            */
+            val ref = storeAsBlob(currentPhotoPath)
+            tremolaState.wai.eval("b2f_new_image_blob('${ref}')")
         }
+
         super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    fun storeAsBlob(bitmap: Bitmap): String {
+        var width: Int
+        var bytes: ByteArray? = null
+        var resized = bitmap
+        while (true) {
+            Log.d("img dims", "w=${resized.width}, h=${resized.height}")
+            val stream = ByteArrayOutputStream()
+            resized.compress(Bitmap.CompressFormat.JPEG, 90, stream)
+            bytes = stream.toByteArray()
+            Log.d("img size", "${bytes!!.size}B")
+            if (bytes!!.size < 5*1024*1024) break
+            width = resized.width * 3 / 4
+            resized = Bitmap.createScaledBitmap(resized, width,
+                width * resized.height / resized.width, true
+            )
+        }
+        return tremolaState.blobStore.store(bytes!!, "jpg")
+    }
+
+    fun storeAsBlob(path: String): String {
+        var width: Int
+        var bytes: ByteArray? = null
+        var resized = BitmapFactory.decodeFile(path)
+        while (true) {
+            Log.d("img dims", "w=${resized.width}, h=${resized.height}")
+            val stream = ByteArrayOutputStream()
+            resized.compress(Bitmap.CompressFormat.JPEG, 90, stream)
+            bytes = stream.toByteArray()
+            Log.d("img size", "${bytes!!.size}B")
+            if (bytes!!.size < 5*1024*1024) break
+            width = resized.width * 3 / 4
+            resized = Bitmap.createScaledBitmap(resized, width,
+                width * resized.height / resized.width, true
+            )
+        }
+        return tremolaState.blobStore.store(bytes!!, "jpg")
     }
 
     override fun onResume() {

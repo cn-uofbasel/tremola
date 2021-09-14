@@ -174,11 +174,32 @@ function menu_dump() {
   closeOverlay();
 }
 
+function menu_take_picture() {
+  closeOverlay();
+  backend('get:camera');
+}
+
+function menu_pick_image() {
+  closeOverlay();
+  backend('get:media');
+}
+
 // ---
 
-function new_post(s) {
+function new_text_post(s) {
   if (s.length == 0) { return; }
   var draft = unicodeStringToTypedArray(document.getElementById('draft').value); // escapeHTML(
+  var recps = tremola.chats[curr_chat].members.join(' ')
+  backend("priv:post " + btoa(draft) + " " + recps);
+  var c = document.getElementById('core');
+  c.scrollTop = c.scrollHeight;
+  document.getElementById('draft').value = '';
+  closeOverlay();
+}
+
+function new_image_post(ref) {
+  if (ref.length == 0) { return; }
+  var draft = "![](" + ref + ")\n";
   var recps = tremola.chats[curr_chat].members.join(' ')
   backend("priv:post " + btoa(draft) + " " + recps);
   var c = document.getElementById('core');
@@ -194,6 +215,9 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
   if (is_other)
     box += "<font size=-1><i>" + fid2display(p["from"]) + "</i></font><br>";
   var txt = escapeHTML(p["body"]).replace(/\n/g, "<br>\n");
+  var re = /!\[.*?\]\((.*?)\)/g;
+  txt = txt.replace(re, " &nbsp;<object type='image/jpeg' style='width: 95%; display: block; margin-left: auto; margin-right: auto; cursor: zoom-in;' data='http://appassets.androidplatform.net/blobs/$1'></object>&nbsp; ");
+  // txt = txt + " &nbsp;<object type='image/jpeg' width=95% data='http://appassets.androidplatform.net/blobs/25d444486ffb848ed0d4f1d15d9a165934a02403b66310bf5a56757fec170cd2.jpg'></object>&nbsp; (!)";
   var d = new Date(p["when"]);
   d = d.toDateString() + ' ' + d.toTimeString().substring(0,5);
   box += txt + "<div align=right style='font-size: x-small;'><i>";
@@ -462,6 +486,12 @@ function unicodeStringToTypedArray(s) {
     return binstr;
 }
 
+function toHex(s) {
+  return Array.from(s, function(c) {
+    return ('0' + (c.charCodeAt(0) & 0xFF).toString(16)).slice(-2);
+  }).join('')
+}
+
 var b32enc_map = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function b32enc_do40bits(b40) {
@@ -491,7 +521,7 @@ function b32encode(bytes) {
 
 function id2b32(str) { // derive a shortname from the SSB id
   try {
-    var b = atob(str.substr(1, str.length-9));
+    var b = atob(str.slice(1,-9)); // atob(str.substr(1, str.length-9));
     b = b32encode(b.slice(0,7)).substr(0,10);
     return b.substring(0,5) + '-' + b.substring(5);
   } catch(err) {}
@@ -628,6 +658,19 @@ function b2f_new_contact(contact_str) { // '{"alias": "nickname", "id": "fid", '
 function b2f_showSecret(json){
   setScenario(prev_scenario);
   generateQR(json)
+}
+
+function b2f_new_image_blob(ref) {
+  console.log("new image: ", ref)
+  document.getElementById('draft').value = ref
+  ref = "http://appassets.androidplatform.net/blobs/" + ref;
+  ref = "<object type='image/jpeg' data='" + ref + "' style='cursor: zoom-in; width: 95%; text-align: center; position: absolute;'></object>"
+  document.getElementById('image-preview').innerHTML = ref
+  var s = document.getElementById('image-overlay').style;
+  s.display = 'initial';
+  s.height = '80%'; // 0.8 * docHeight;
+  document.getElementById('overlay-bg').style.display = 'initial';
+  overlayIsActive = true;
 }
 
 function b2f_initialize(id) {
