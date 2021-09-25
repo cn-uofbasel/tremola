@@ -3,11 +3,10 @@ package nz.scuttlebutt.tremola
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.ActivityInfo
-import android.graphics.Bitmap
-import android.graphics.Bitmap.createBitmap
-import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.*
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.provider.MediaStore
@@ -18,20 +17,19 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-
+import androidx.annotation.RequiresApi
 import com.google.zxing.integration.android.IntentIntegrator
+import java.lang.Thread.sleep
+import java.net.*
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.thread
+
 import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.peering.RpcResponder
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
 import nz.scuttlebutt.tremola.ssb.peering.UDPbroadcast
 import nz.scuttlebutt.tremola.utils.Constants
 import nz.scuttlebutt.tremola.utils.Constants.Companion.LOCAL_URL_PREFIX
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.lang.Thread.sleep
-import java.net.*
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.thread
 
 
 class MainActivity : Activity() {
@@ -73,7 +71,7 @@ class MainActivity : Activity() {
                 Log.d("load", "request for URI ${request.url}")
                 val bName = request.url.toString().substring(LOCAL_URL_PREFIX.length)
                 try {
-                    val inputStream = tremolaState.blobStore.fetch(bName!!)
+                    val inputStream = tremolaState.blobStore.fetch(bName)
                     val x = WebResourceResponse(
                         "image/jpeg", null,
                         inputStream
@@ -156,75 +154,33 @@ class MainActivity : Activity() {
 
     // pt 3 in https://betterprogramming.pub/5-android-webview-secrets-you-probably-didnt-know-b23f8a8b5a0c
 
-    override fun onActivityResult(
-        requestCode: Int,
-        resultCode: Int,
-        data: Intent?
-    ) {
-        val result /* : IntentResult? = null */ = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        val result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
         if (result != null) {
             Log.d("activityResult", result.toString())
-            val cmd: String
-            if (result.contents == null) {
-                cmd = "qr_scan_failure();"
-            } else {
-                cmd = "qr_scan_success('" + result.contents + "');"
+            val cmd = when {
+                result.contents == null -> "qr_scan_failure();"
+                else -> "qr_scan_success('" + result.contents + "');"
             }
             tremolaState.wai.eval(cmd)
         }  else if (requestCode == 1001 && resultCode == RESULT_OK) { // media pick
-            val imageBitmap = data?.data //as Bitmap
-            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageBitmap)
-            val ref = storeAsBlob(bitmap)
+            val pictureUri = data?.data
+            val bitmap = when {
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.P /* 28 */ ->
+                    MediaStore.Images.Media.getBitmap(this.contentResolver, pictureUri)
+                else -> @RequiresApi(Build.VERSION_CODES.P) {
+                    val src = ImageDecoder.createSource(this.contentResolver, pictureUri!!)
+                    ImageDecoder.decodeBitmap(src)
+                }
+            }
+            val ref = tremolaState.blobStore.storeAsBlob(bitmap)
             tremolaState.wai.eval("b2f_new_image_blob('${ref}')")
         } else if (requestCode == 1002 && resultCode == RESULT_OK) { // camera
-            /*
-            val imageBitmap = data?.extras?.get("data") as Bitmap
-            val ref = storeAsBlob(imageBitmap)
-            */
-            val ref = storeAsBlob(currentPhotoPath)
+            val ref = tremolaState.blobStore.storeAsBlob(currentPhotoPath)
             tremolaState.wai.eval("b2f_new_image_blob('${ref}')")
         }
 
         super.onActivityResult(requestCode, resultCode, data)
-    }
-
-    fun storeAsBlob(bitmap: Bitmap): String {
-        var width: Int
-        var bytes: ByteArray? = null
-        var resized = bitmap
-        while (true) {
-            Log.d("img dims", "w=${resized.width}, h=${resized.height}")
-            val stream = ByteArrayOutputStream()
-            resized.compress(Bitmap.CompressFormat.JPEG, 90, stream)
-            bytes = stream.toByteArray()
-            Log.d("img size", "${bytes!!.size}B")
-            if (bytes!!.size < 5*1024*1024) break
-            width = resized.width * 3 / 4
-            resized = Bitmap.createScaledBitmap(resized, width,
-                width * resized.height / resized.width, true
-            )
-        }
-        return tremolaState.blobStore.store(bytes!!, "jpg")
-    }
-
-    fun storeAsBlob(path: String): String {
-        var width: Int
-        var bytes: ByteArray? = null
-        var resized = BitmapFactory.decodeFile(path)
-        File(path).delete()
-        while (true) {
-            Log.d("img dims", "w=${resized.width}, h=${resized.height}")
-            val stream = ByteArrayOutputStream()
-            resized.compress(Bitmap.CompressFormat.JPEG, 90, stream)
-            bytes = stream.toByteArray()
-            Log.d("img size", "${bytes!!.size}B")
-            if (bytes!!.size < 5*1024*1024) break
-            width = resized.width * 3 / 4
-            resized = Bitmap.createScaledBitmap(resized, width,
-                width * resized.height / resized.width, true
-            )
-        }
-        return tremolaState.blobStore.store(bytes!!, "jpg")
     }
 
     override fun onResume() {

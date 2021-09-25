@@ -2,6 +2,7 @@ package nz.scuttlebutt.tremola.ssb.peering
 
 import android.telephony.mbms.StreamingServiceCallback
 import android.util.Log
+import nz.scuttlebutt.tremola.ssb.db.entities.Blob
 import java.io.OutputStream
 import java.io.InputStream
 import java.io.Closeable
@@ -47,6 +48,7 @@ abstract class RpcLoop ()
     }
 
     fun rx_loop() {
+        openBLOBstream()
         var buf = ByteArray(0)
         var len = -1 // expected length of header+body
         var seg = boxStream!!.readFromServer(istr!!) // read first segment
@@ -137,6 +139,29 @@ abstract class RpcLoop ()
         )
         rpcService?.ebtRpcNr = myRequestCount
         tx(rpcMessage) //writeQueue.add()
+    }
+
+    fun openBLOBstream() {
+        val s = "{\"name\":[\"blobs\",\"createWants\"],\"args\":[],\"type\":\"source\"}"
+        var body = JSONObject(s).toString().encodeToByteArray()
+        var rpcMessage = RPCMessage(
+            true,
+            false,
+            RPCserialization.Companion.RPCBodyType.JSON,
+            body.size,
+            ++myRequestCount,
+            body
+        )
+        rpcService?.myBlobsRpcNr = myRequestCount
+        tx(rpcMessage)
+        // loop for wanted blobs:
+        rpcService!!.tremolaState.blobDAO.getWant().forEach() {
+            body = JSONObject("{\"${it.id}\":${it.distance}}").toString().encodeToByteArray()
+            rpcMessage = RPCMessage(true, false,
+                RPCserialization.Companion.RPCBodyType.JSON, body.size,
+                rpcService!!.myBlobsRpcNr, body)
+            tx(rpcMessage)
+        }
     }
 
     fun sendInvite(me: String) {

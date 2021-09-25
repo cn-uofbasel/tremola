@@ -1,11 +1,11 @@
 package nz.scuttlebutt.tremola.ssb
 
 import android.content.Context
+import java.util.concurrent.*
+
 import nz.scuttlebutt.tremola.MainActivity
 import nz.scuttlebutt.tremola.WebAppInterface
 import nz.scuttlebutt.tremola.ssb.core.BlobStore
-import java.util.concurrent.*
-
 import nz.scuttlebutt.tremola.ssb.peering.PeeringPool
 import nz.scuttlebutt.tremola.ssb.db.TremolaDatabase
 import nz.scuttlebutt.tremola.ssb.db.daos.ContactDAO
@@ -13,7 +13,9 @@ import nz.scuttlebutt.tremola.ssb.db.daos.PubDAO
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact
 import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.core.IdStore
+import nz.scuttlebutt.tremola.ssb.db.daos.BlobDAO
 import nz.scuttlebutt.tremola.ssb.db.daos.LogEntryDAO
+import nz.scuttlebutt.tremola.ssb.db.entities.Blob
 import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
 import nz.scuttlebutt.tremola.utils.Constants.Companion.EBT_FORCE_FRONTIER_INTERVAL
 import nz.scuttlebutt.tremola.utils.Constants.Companion.WIFI_DISCOVERY_INTERVAL
@@ -26,6 +28,7 @@ class TremolaState(val context: Context) {
     val idStore = IdStore(context)
     val blobStore = BlobStore(context)
     val logDAO: LogEntryDAO = db.logDAO()
+    val blobDAO: BlobDAO = db.blobDAO()
     val pubDAO: PubDAO = db.pubDAO()
     val contactDAO: ContactDAO = db.contactDAO()
     val peers: PeeringPool
@@ -90,6 +93,20 @@ class TremolaState(val context: Context) {
     fun addLogEntry(e: LogEntry) {
         executorPool.submit { logDAO.insert(e) }
     }
+
+    fun extractBlobRefs(e: LogEntry): List<String> {
+        // val lst = mutableListOf<String>()
+        return Regex("\\((&.+?\\.sha256)\\)").findAll(e.pri as CharSequence).toList().map {it -> it.groups[1]!!.value}
+    }
+
+    fun storeWant(ref: String, dist: Int) {
+        val len = blobStore.exists(ref)
+        if (len < 0)
+            blobDAO.insert(Blob(ref, dist, len))
+        else
+            blobDAO.insert(Blob(ref, 1, len))
+    }
+
 
     fun addContact(fid: String, alias: String?) {
         contactDAO.insertContact(

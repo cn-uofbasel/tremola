@@ -1,10 +1,14 @@
 package nz.scuttlebutt.tremola.ssb.core
 
 import android.content.Context
-import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.sha256
-import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
+
+import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.sha256
+import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
 
 class BlobStore(val context: Context) {
     val blobDir: File
@@ -37,6 +41,13 @@ class BlobStore(val context: Context) {
         return FileInputStream(f)
     }
 
+    fun exists(ref: String): Long { // return size if we have the blob, else -1
+        val f = File(blobDir, ref2fname(ref))
+        if (f.exists())
+            return f.length()
+        return -1
+    }
+
     fun delete(ref: String) {
         try { File(blobDir, ref2fname(ref)).delete() } catch (e: Exception) {}
     }
@@ -44,4 +55,27 @@ class BlobStore(val context: Context) {
     private fun ref2fname(ref: String): String {
         return ref.substring(1, ref.length-7).replace("/", "_")
     }
+
+    fun storeAsBlob(bitmap: Bitmap): String { // compress to <5MB if necessary
+        var resized = bitmap
+        while (true) {
+            // Log.d("img dims", "w=${resized.width}, h=${resized.height}")
+            val stream = ByteArrayOutputStream()
+            resized.compress(Bitmap.CompressFormat.JPEG, 90, stream)
+            val bytes = stream.toByteArray()
+            // Log.d("img size", "${bytes.size}B")
+            if (bytes.size < 5*1024*1024)
+                return store(bytes, "jpg")
+            val width = resized.width * 3 / 4
+            val height = width * resized.height / resized.width
+            resized = Bitmap.createScaledBitmap(resized, width, height,true)
+        }
+    }
+
+    fun storeAsBlob(path: String): String {
+        val resized = BitmapFactory.decodeFile(path)
+        File(path).delete()
+        return storeAsBlob(resized)
+    }
+
 }

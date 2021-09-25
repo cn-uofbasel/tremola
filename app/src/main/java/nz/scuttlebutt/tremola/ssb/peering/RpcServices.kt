@@ -10,19 +10,13 @@ import nz.scuttlebutt.tremola.ssb.peering.rpc.RPCRequest
 import nz.scuttlebutt.tremola.ssb.peering.rpc.RPCserialization
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.utf8
 
-/*
-data class RpcHistoryTrain(val reqNr: Int,
-                           val lid: String,
-                           var from_seq: Int,
-                           var limit: Int,
-                           val envelope: Boolean)
-*/
-
 class RpcServices(val tremolaState: TremolaState)
 {
     // val trains: MutableList<RpcHistoryTrain> = arrayListOf()
     var rpcLoop: RpcLoop? = null // will be set by the stream using this obj
     var ebtRpcNr: Int = 0 // 0=desactivated, positive=we initiated, negative=we responded
+    var myBlobsRpcNr: Int = 0
+    var theirBlobsRpcNr: Int = 0
 
     fun rx_rpc(msg: RPCMessage) {
         // Log.d("RPC MSG raw", msg.rawEvent.toHex())
@@ -37,13 +31,17 @@ class RpcServices(val tremolaState: TremolaState)
             msg.requestNumber > 0 -> {
                 if (ebtRpcNr < 0 && msg.requestNumber == -ebtRpcNr)
                     handleEBTmsg(ebtRpcNr, bodyString, msg.rawEvent)
+                else if (msg.requestNumber == theirBlobsRpcNr)
+                    handleBLOBRequest(bodyString)
                 else
                     handleRequest(msg.requestNumber, bodyString, msg.rawEvent)
             }
             else -> { // a message or blob due to a CHS request ?
                 if (ebtRpcNr > 0 && msg.requestNumber == -ebtRpcNr)
                     handleEBTmsg(ebtRpcNr, bodyString, msg.rawEvent)
-                else {
+                else if (msg.requestNumber == -myBlobsRpcNr)
+                    handleBLOBReply(bodyString)
+                else { // assume it's a log entry (e.g. sent by EBT)
                     val evnt =
                         tremolaState.msgTypes.jsonToLogEntry(bodyString, msg.rawEvent)
                     if (evnt != null) // parsing and signature checked passed
@@ -58,7 +56,6 @@ class RpcServices(val tremolaState: TremolaState)
            {"name":["ebt","replicate"],"args":[{"version":3}],"type":"duplex"}
            {"name":["gossip","ping"],"args":[{"timeout":300000}],"type":"duplex"}
            {"name":["room","metadata"],"args":[]}
-           {"name":["blobs","createWants"],"args":[],"type":"source"}
            {"name":["blobs","createWants"],"args":[],"type":"source"}
            {"name":["createHistoryStream"],"type": "source",
             "args": [{
@@ -134,7 +131,28 @@ class RpcServices(val tremolaState: TremolaState)
             RPCRequest.BLOBS -> {
                 when (name.getString(1) /* msg.name[1] */) {
                     RPCRequest.GET -> {
-
+                        val ref = args[0] as String
+                        val len = tremolaState.blobStore.exists(ref)
+                        if (len >= 0) {
+                            val inputStream = tremolaState.blobStore.fetch(ref)
+                            val buffer = ByteArray(32*1024)
+                            inputStream.use { input ->
+                                while (true) {
+                                    val length = input.read(buffer)
+                                    if (length <= 0)
+                                        break
+                                    val response = RPCMessage(
+                                        true,
+                                        false,
+                                        RPCserialization.Companion.RPCBodyType.BINARY,
+                                        length,
+                                        -theirBlobsRpcNr,
+                                        buffer.sliceArray(0..length - 1)
+                                    )
+                                    rpcLoop?.tx(response)
+                                }
+                            }
+                        }
                     }
                     RPCRequest.GET_SLICE -> {
 
@@ -217,6 +235,14 @@ class RpcServices(val tremolaState: TremolaState)
                 }
             }
         }
+    }
+
+    private fun handleBLOBRequest(body: String) {
+
+    }
+
+    private fun handleBLOBReply(body: String) {
+
     }
 
     private fun respondWithEmpty(requestNumber: Int) {

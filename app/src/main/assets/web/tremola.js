@@ -191,21 +191,23 @@ function new_text_post(s) {
   var draft = unicodeStringToTypedArray(document.getElementById('draft').value); // escapeHTML(
   var recps = tremola.chats[curr_chat].members.join(' ')
   backend("priv:post " + btoa(draft) + " " + recps);
-  var c = document.getElementById('core');
-  c.scrollTop = c.scrollHeight;
   document.getElementById('draft').value = '';
   closeOverlay();
+  setTimeout(function() { // let image rendering (fetching size) take place before we scroll
+      var c = document.getElementById('core');
+      c.scrollTop = c.scrollHeight; }, 100);
 }
 
-function new_image_post(ref) {
-  if (ref.length == 0) { return; }
-  var draft = "![](" + ref + ")\n";
+function new_image_post() {
+  if (curr_img_candidate == null) { return; }
+  var draft = "![](" + curr_img_candidate + ")\n";
   var recps = tremola.chats[curr_chat].members.join(' ')
   backend("priv:post " + btoa(draft) + " " + recps);
   curr_img_candidate = null;
-  var c = document.getElementById('core');
-  c.scrollTop = c.scrollHeight;
   closeOverlay();
+  setTimeout(function() { // let image rendering (fetching size) take place before we scroll
+      var c = document.getElementById('core');
+      c.scrollTop = c.scrollHeight; }, 100);
 }
 
 function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group or public)>
@@ -240,22 +242,29 @@ function load_chat(nm) {
   ch = tremola.chats[nm]
   pl = document.getElementById("lst:posts");
   while(pl.rows.length) { pl.deleteRow(0); }
+  pl.insertRow(0).innerHTML = "<tr><td>&nbsp;<td>&nbsp;<td>&nbsp;<td>&nbsp;<td>&nbsp;</tr>";
   curr_chat = nm;
-  var lop = [];
+  var lop = []; // list of posts
   for (var p in ch.posts) lop.push(p)
   lop.sort( function (a,b) { return ch.posts[a].when - ch.posts[b].when } )
   lop.forEach( function (p) { load_post_item(ch.posts[p]) } )
   load_chat_title(ch);
   setScenario("posts");
   document.getElementById("tremolaTitle").style.display = 'none';
-  // scroll to bottom:
-  e = document.getElementById('core')
-  e.scrollTop = e.scrollHeight;
-  // console.log("did scroll down, but did it do it?")
   // update unread badge:
   ch["lastRead"] = Date.now();
   persist();
   document.getElementById(nm+'-badge').style.display = 'none' // is this necessary?
+  setTimeout(function() { // let image rendering (fetching size) take place before we scroll
+    var c = document.getElementById('core');
+    c.scrollTop = c.scrollHeight; }, 100);
+  /*
+  // scroll to bottom:
+  var c = document.getElementById('core');
+  c.scrollTop = c.scrollHeight;
+  document.getElementById('lst:posts').scrollIntoView(false)
+  // console.log("did scroll down, but did it do it?")
+  */
 }
 
 function load_chat_title(ch) {
