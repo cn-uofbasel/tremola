@@ -69,6 +69,21 @@
     <button class=passive onclick="create_chat();" style="border: 0pt; height: 40pt;"><font size=+1 color=green>&#x2714;</font> create</button>
   </div>
 
+  <div id="new_contact_discovery-overlay" class="qr-overlay" style="display: none; text-align: center">
+    <br>Enter the Tremola Shortname of a trustworthy person:<br>&nbsp;
+    <div style="display: flex;">
+      <textarea rows="2" id="contact_shortname" placeholder="Tap here to type" style="width: calc(100% - 50px); vertical-align: middle;"></textarea>
+      <button class="passive buttontext" onclick="look_up(document.getElementById('contact_shortname').value);" style="background-image: url('img/checked.svg'); background-color: var(--passive); margin-left: 8px; border: 0pt; height: 3em; width: 3em; vertical-align: middle;">&nbsp;</button>
+    </div>
+    <div style='font-size: x-small; text-align: left;'><tt>
+      &nbsp;<br>
+      Valid formats :<br>
+        XXXXX-XXXXX<br>
+        XXXXXXXXXX
+      It&nbsp;must contain only letters and numbers, except an optional minus in the middle of the <word></word>
+    </tt></div>
+  </div>
+
   <div id="new_contact-overlay" class="qr-overlay" style="display: none; text-align: center">
     <div style='margin-bottom: 15px;'>&nbsp;<br>Scan Tremola QR code<br>of a trustworthy person:</div>
     <button class="passive buttontext" onclick="qr_scan_start();" style="border: 0pt; height: 60pt; width: 120px; background-image: url('img/qr-code-scan.svg');">&nbsp;</button><br>&nbsp;<hr>

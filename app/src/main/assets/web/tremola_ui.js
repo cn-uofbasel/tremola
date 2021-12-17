@@ -29,6 +29,7 @@ var scenarioMenu = {
                 ['About', 'menu_about']],
   'contacts' : [['New contact', 'menu_new_contact'],
                 ['Settings', 'menu_settings'],
+                ['Look up', 'menu_look_up'],
                 ['About', 'menu_about']],
   'connex'   : [['New SSB pub', 'menu_new_pub'],
                 ['Redeem invite code', 'menu_invite'],
@@ -166,7 +167,7 @@ function closeOverlay(){
   document.getElementById('overlay-trans').style.display = 'none';
   document.getElementById('about-overlay').style.display = 'none';
   document.getElementById('edit-overlay').style.display = 'none';
-  document.getElementById('new_contact-overlay').style.display = 'none';
+  document.getElementById('new_contact_discovery-overlay').style.display = 'none';
   document.getElementById('old_contact-overlay').style.display = 'none';
   overlayIsActive = false;
 }
@@ -185,6 +186,14 @@ function showPreview() {
   s.display = 'initial';
   s.height = '80%'; // 0.8 * docHeight;
   document.getElementById('overlay-bg').style.display = 'initial';
+  overlayIsActive = true;
+}
+
+function menu_look_up() {
+  closeOverlay()
+  document.getElementById('new_contact_discovery-overlay').style.display = 'initial';
+  document.getElementById('overlay-bg').style.display = 'initial';
+  // document.getElementById('chat_name').focus();
   overlayIsActive = true;
 }
 
@@ -289,6 +298,21 @@ function qr_scan_confirmed() {
   backend("add:contact " + s + " " + btoa(a))
   load_contact_item([s,c]);
   closeOverlay();
+}
+
+/**
+ * Check that entered ShortName follows the correct pattern.
+ * Lower cases are accepted, and the minus in 6th position is optional
+ */
+function look_up(shortname) {
+  shortname = shortname.toUpperCase()
+  if (shortname.search("^[A-Z0-9]{5}-?[A-Z0-9]{5}$") !== -1) {
+    closeOverlay()
+    launch_snackbar(shortname + " succeeded!!!")
+    backend("look_up " + shortname);
+  } else {
+    launch_snackbar(shortname + " failed")
+  }
 }
 
 // ---
