@@ -16,6 +16,11 @@ import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
 import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.peering.RpcInitiator
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
+import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUpThread
+import nz.scuttlebutt.tremola.utils.Constants
+import nz.scuttlebutt.tremola.utils.getBroadcastAddress
+import nz.scuttlebutt.tremola.utils.getLocalIpAddress
+import java.io.IOException
 import java.util.concurrent.Executors
 
 
@@ -122,6 +127,23 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
                 } catch (e: Exception) {
                     Toast.makeText(act, "Problem parsing invite code",
                         Toast.LENGTH_LONG).show()
+                }
+            }
+            "look_up" -> {
+                val shortname = args[1];
+                Toast.makeText(act, "I DID IT!!!: $shortname", Toast.LENGTH_SHORT).show()
+                try {
+                    val lookUpThread = LookUpThread(getBroadcastAddress(act).hostAddress,
+                        getLocalIpAddress(act),
+                        Constants.SSB_IPV4_UDPPORT,
+                        tremolaState.idStore.identity,
+                        shortname
+                    )
+                    lookUpThread.start()
+                } catch (e: IOException) {
+                    Log.e("BROADCAST", "Failed to obtain broadcast address")
+                } catch (e: Exception) {
+                    Log.e("BROADCAST", e.toString())
                 }
             }
             else -> {
