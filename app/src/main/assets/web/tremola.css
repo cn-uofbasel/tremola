@@ -170,7 +170,7 @@ textarea {
   border: none;
   text-align: left;
   vertical-align: top;
-  width: calc(100%-10em);
+  width: calc(100% - 10em);
   height: 3em;
   font-size: medium;
   border-radius: 4pt;

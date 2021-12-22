@@ -308,10 +308,9 @@ function look_up(shortname) {
   shortname = shortname.toUpperCase()
   if (shortname.search("^[A-Z0-9]{5}-?[A-Z0-9]{5}$") !== -1) {
     closeOverlay()
-    launch_snackbar(shortname + " succeeded!!!")
     backend("look_up " + shortname);
   } else {
-    launch_snackbar(shortname + " failed")
+    launch_snackbar(shortname + " is not a valid Shortname")
   }
 }
 
