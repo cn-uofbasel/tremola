@@ -28,6 +28,8 @@ import java.util.concurrent.Executors
 
 class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val webView: WebView) {
 
+    private var lookUpThread: LookUpThread? = null;
+
     @JavascriptInterface
     fun onFrontendRequest(s: String) {
         //handle the data captured from webview}
@@ -131,15 +133,13 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
             }
             "look_up" -> {
                 val shortname = args[1];
-                Toast.makeText(act, "I DID IT!!!: $shortname", Toast.LENGTH_SHORT).show()
+//                Toast.makeText(act, "I DID IT!!!: $shortname", Toast.LENGTH_SHORT).show()
                 try {
-                    val lookUpThread = LookUpThread(getBroadcastAddress(act).hostAddress,
-                        getLocalIpAddress(act),
-                        Constants.SSB_IPV4_UDPPORT,
-                        tremolaState.idStore.identity,
-                        shortname
-                    )
-                    lookUpThread.start()
+                    if (lookUpThread == null) {
+                        lookUpThread = LookUpThread(getLocalIpAddress(act),
+                            Constants.SSB_IPV4_UDPPORT, tremolaState.idStore.identity)
+                    }
+                    lookUpThread!!.sendQuery(getBroadcastAddress(act).hostAddress, shortname)
                 } catch (e: IOException) {
                     Log.e("BROADCAST", "Failed to obtain broadcast address")
                 } catch (e: Exception) {
@@ -212,5 +212,17 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
         cmd += "});"
         Log.d("CMD", cmd)
         eval(cmd)
+    }
+
+    fun acceptLookUp(incomingRequest: String) {
+        if (lookUpThread == null) {
+            lookUpThread = LookUpThread(
+                getLocalIpAddress(act),
+                Constants.SSB_IPV4_UDPPORT,
+                tremolaState.idStore.identity
+            )
+        }
+        lookUpThread?.storeIncomingLookup(incomingRequest)
+        lookUpThread?.start()
     }
 }
