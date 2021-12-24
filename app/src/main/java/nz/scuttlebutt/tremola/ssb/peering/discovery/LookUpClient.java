@@ -19,5 +19,6 @@ public abstract class LookUpClient {
 
     abstract void sendQuery(String broadcastMessage);
 
-    abstract void processQuery();
+    // TODO Do I need this?
+//    abstract void processQuery();
 }

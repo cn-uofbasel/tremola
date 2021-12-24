@@ -12,8 +12,8 @@ import org.json.JSONObject;
 
 import java.util.LinkedList;
 
+// TODO Store LookUpClients as List (?)
 public class LookUp extends Thread {
-
 
     private final int port;
     private final String localAddress;
@@ -75,11 +75,45 @@ public class LookUp extends Thread {
     }
 
     private void processQuery() {
-        if (lookUpUDP != null)
-            lookUpUDP.processQuery();
-        if (lookUpBluetooth != null) {
-            // TODO processQuery()
-            lookUpBluetooth.scanLeDevice();
+        Log.d("INPUT", incomingRequest);
+        if (logOfReceivedQueries == null)
+            logOfReceivedQueries = new LinkedList<>();
+        try {
+            JSONObject data = new JSONObject(incomingRequest);
+            String msa = data.get("msa").toString();
+            if (msa.endsWith(ed25519KeyPair.toExportString()))
+                return; //I'm the initiator
+            int queryID = data.getInt("queryID");
+            String[] multiServerAddress = msa.split("~");
+            String initID = multiServerAddress[1].split(":")[1];
+            for (Object object : logOfReceivedQueries.toArray()) {
+                ReceivedQuery query = (ReceivedQuery) object;
+                if (query.isOutDated()) {
+                    logOfReceivedQueries.remove(query);
+                } else if (query.isEqualTo(initID, queryID)) {
+                    return; // the query is already in the database
+                }
+            }
+            String shortName = data.getString("targetName");
+            int hopCount = data.getInt("hop");
+            logOfReceivedQueries.add(
+                    new ReceivedQuery(shortName, initID, hopCount, queryID));
+
+            if (selfIsTarget(shortName)) {
+                replyStep2(initID, queryID, shortName, hopCount);
+            } else {
+                // TODO Decrement hop count
+                if (lookUpUDP != null) {
+                    lookUpUDP.sendQuery(createMessage(targetName));
+//                    lookUpUDP.processQuery();
+                }
+                if (lookUpBluetooth != null) {
+                    // TODO processQuery()
+                    lookUpBluetooth.scanLeDevice();
+                }
+            }
+        } catch (Exception e) {
+            Log.e("PROCESS_QUERY", e.getMessage());
         }
     }
 
@@ -98,5 +132,17 @@ public class LookUp extends Thread {
 
     public void acceptQuery(@NotNull String incomingRequest) {
         this.incomingRequest = incomingRequest;
+    }
+
+    private void replyStep2(String initID, int queryID, String targetShortName, int hopCount) {
+        // TODO
+//        reply = [initiatorId, queryId, targetShortName, targetId, hopCount].asJSON
+//        send(reply, to: initiator)
+    }
+
+    private boolean selfIsTarget(String receivedShortName) {
+//        String b = b32encode(receivedShortName.substring(0, 7)).substring(0, 10);
+//        String myShortName = b;
+        return false; //!receivedShortName.equals(myShortName);
     }
 }

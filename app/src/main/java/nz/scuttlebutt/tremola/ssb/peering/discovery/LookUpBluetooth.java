@@ -28,27 +28,28 @@ public class LookUpBluetooth extends LookUpClient {
     }
 
     public void scanLeDevice() {
-        if (!scanning) {
-            // Stops scanning after a predefined scan period.
-            timer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    scanning = false;
-                    bluetoothLeScanner.stopScan(leScanCallback);
-                    Log.e("BLUETOOTH", "Stop scanning");
-                }
-            }, SCAN_PERIOD);
+        if (bluetoothLeScanner != null) {
+            if (!scanning) {
+                // Stops scanning after a predefined scan period.
+                timer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        scanning = false;
+                        bluetoothLeScanner.stopScan(leScanCallback);
+                        Log.e("BLUETOOTH", "Stop scanning");
+                    }
+                }, SCAN_PERIOD);
 
-
-            // Filter scanned devices :
-            // https://developer.android.com/reference/android/bluetooth/le/BluetoothLeScanner#startScan(java.util.List%3Candroid.bluetooth.le.ScanFilter%3E,%20android.bluetooth.le.ScanSettings,%20android.bluetooth.le.ScanCallback)
-            scanning = true;
-            bluetoothLeScanner.startScan(leScanCallback);
-            Log.e("BLUETOOTH", "Start scanning!!!");
-        } else {
-            scanning = false;
-            bluetoothLeScanner.stopScan(leScanCallback);
-            Log.e("BLUETOOTH", "!!!!!Error scanning");
+                // Filter scanned devices :
+                // https://developer.android.com/reference/android/bluetooth/le/BluetoothLeScanner#startScan(java.util.List%3Candroid.bluetooth.le.ScanFilter%3E,%20android.bluetooth.le.ScanSettings,%20android.bluetooth.le.ScanCallback)
+                scanning = true;
+                bluetoothLeScanner.startScan(leScanCallback);
+                Log.e("BLUETOOTH", "Start scanning!!!");
+            } else {
+                scanning = false;
+                bluetoothLeScanner.stopScan(leScanCallback);
+                Log.e("BLUETOOTH", "!!!!!Error scanning");
+            }
         }
     }
 
@@ -71,11 +72,10 @@ public class LookUpBluetooth extends LookUpClient {
 
     @Override
     void sendQuery(String broadcastMessage) {
-
+        //TODO
     }
 
-    @Override
-    void processQuery() {
-
-    }
+//    @Override
+//    void processQuery() {
+//    }
 }

@@ -15,11 +15,6 @@ import java.util.TimerTask;
 
 public class LookUpUDP extends LookUpClient {
 
-    private String broadcastMessage;
-    private final int HOP_COUNT = 4;
-    private static int queryIdentifier = 0;
-    private String incomingRequest;
-    private LinkedList<ReceivedQuery> logOfReceivedQueries;
     private int outgoingPort;
     private String broadcastAddress;
 
@@ -27,27 +22,21 @@ public class LookUpUDP extends LookUpClient {
         super(ipAddress, port, ed25519KeyPair);
     }
 
-
-
-    public void prepareQuery(String brodcastAddress) {
-        this.broadcastAddress = brodcastAddress;
-        this.outgoingPort = port;
+    public void prepareQuery(String broadcastAddress) {
+        this.broadcastAddress = broadcastAddress;
+        this.outgoingPort = port; // Necessary?
     }
 
     @Override
     public void sendQuery(String broadcastMessage) {
-        sendMessage(broadcastAddress, port, broadcastMessage);
-    }
-
-    private void sendMessage(String broadcastAddress, int port, String message) {
         try {
             final DatagramSocket datagramSocket = new DatagramSocket();
             datagramSocket.setBroadcast(true);
             InetAddress receiverAddress = InetAddress.getByName(broadcastAddress);
 
             final DatagramPacket datagramPacket = new DatagramPacket(
-                    message.getBytes(),
-                    message.length(),
+                    broadcastMessage.getBytes(),
+                    broadcastMessage.length(),
                     receiverAddress,
                     port
             );
@@ -61,79 +50,10 @@ public class LookUpUDP extends LookUpClient {
         }
     }
 
-    @Override
-    public void processQuery() {
-        Log.d("INPUT", incomingRequest);
-        if (logOfReceivedQueries == null)
-            logOfReceivedQueries = new LinkedList<>();
-        try {
-            JSONObject data = new JSONObject(incomingRequest);
-            String msa = data.get("msa").toString();
-            if (msa.endsWith(ed25519KeyPair.toExportString()))
-                return;
-            int queryID = data.getInt("queryID");
-            String[] multiServerAddress = msa.split("~");
-            String initID = multiServerAddress[1].split(":")[1];
-            for (Object object : logOfReceivedQueries.toArray()) {
-                ReceivedQuery query = (ReceivedQuery) object;
-                if (query.isOutDated()) {
-                    logOfReceivedQueries.remove(query);
-                } else if (query.isEqualTo(initID, queryID)) {
-                    return; // the query is already in the database
-                }
-            }
-            String shortName = data.getString("targetName");
-            int hopCount = data.getInt("hop");
-            logOfReceivedQueries.add(new ReceivedQuery(shortName, initID, hopCount, queryID));
-
-            if (selfIsTarget(shortName)) {
-                replyStep2(initID, queryID, shortName, hopCount);
-            } else {
-                String[] address = new String[0];
-                try {
-                    address = multiServerAddress[0].split(":");
-                    sendMessage(address[1], Integer.parseInt(address[2]), incomingRequest);
-//                    final DatagramSocket datagramSocket = new DatagramSocket(
-//                            Integer.parseInt(address[2]),
-//                            InetAddress.getByName(address[1])
-//                    );
-//                    datagramSocket.setBroadcast(false);
-//                    // TODO decrease hop count
-//                    final DatagramPacket datagramPacket = new DatagramPacket(
-//                            incomingRequest.getBytes(),
-//                            incomingRequest.length()
-//                    );
-//                    datagramSocket.send(datagramPacket);
-
-                } catch (NullPointerException e) {
-                    Log.e("PORT_PARSE", "error while parsing port :" + address[2] + ":");
-                    Log.e("PORT_PARSE", e.getMessage());
-                }
-            }
-        } catch (NullPointerException npe) {
-            Log.d("FAILED DATA", incomingRequest);
-        } catch (JSONException err) {
-            Log.d("Error", err.toString());
-        }
-    }
-
     private void replyStep2(String initID, int queryID, String targetShortName, int hopCount) {
         // TODO
 //        reply = [initiatorId, queryId, targetShortName, targetId, hopCount].asJSON
 //        send(reply, to: initiator)
-    }
-
-    private boolean selfIsTarget(String receivedShortName) {
-//        String b = b32encode(receivedShortName.substring(0, 7)).substring(0, 10);
-//        String myShortName = b;
-        return false; //!receivedShortName.equals(myShortName);
-    }
-
-    public void storeIncomingLookup(@NotNull String incomingRequest, String broadcastAddress, int outgoingPort) {
-        this.incomingRequest = incomingRequest;
-        this.broadcastAddress = broadcastAddress;
-        this.outgoingPort = outgoingPort;
-        // TODO : check that it's not processing a request
     }
 
     private String b32encode(String bytes) {
