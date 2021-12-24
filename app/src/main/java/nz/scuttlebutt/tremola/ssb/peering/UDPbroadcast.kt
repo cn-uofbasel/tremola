@@ -17,7 +17,7 @@ import nz.scuttlebutt.tremola.utils.Constants.Companion.UDP_BROADCAST_INTERVAL
 
 class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
 
-    val local: MutableMap<String,Long> = HashMap<String,Long>() // multiaddr ~ last_seen
+    val local: MutableMap<String, Long> = HashMap<String, Long>() // multiaddr ~ last_seen
     var myMark: String? = null
 
     fun beacon(pubkey: ByteArray, lck: ReentrantLock, myTcpPort: Int) {
@@ -26,7 +26,8 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
             // get the current address (for each beacon msg)
             val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val dhcp = wifiManager.getDhcpInfo() // assumes IPv4?
-            val broadcast = dhcp.ipAddress or (0xff shl 24) // (-1 and dhcp.netmask.inv()) // dhcp.ipAddress and dhcp.netmask or dhcp.netmask.inv()
+            val broadcast =
+                dhcp.ipAddress or (0xff shl 24) // (-1 and dhcp.netmask.inv()) // dhcp.ipAddress and dhcp.netmask or dhcp.netmask.inv()
             val quads = ByteArray(4)
             for (k in 0..3)
                 quads[k] = (broadcast shr k * 8).toByte()
@@ -46,8 +47,8 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
                 val s = context.broadcast_socket
                 s?.send(dgram)
                 // blocking?? Log.d("beacon sock", "bound=${s?.isBound}, ${s?.localAddress}/${s?.port}/${s?.localPort} brcast${s?.broadcast}")
-                Log.d("beacon", "sent ${myMark}") }
-            catch (e: Exception) { // wait for better times
+                Log.d("beacon", "sent ${myMark}")
+            } catch (e: Exception) { // wait for better times
                 Log.d("Beacon exc", e.toString())
                 sleep(UDP_BROADCAST_INTERVAL)
                 // dgram = mkDgram()
@@ -64,7 +65,9 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
                     local.remove(k)
                     wai?.eval("b2f_local_peer('${k}', 'offline')") // announce disappearance
                 }
-            } finally { lck.unlock() }
+            } finally {
+                lck.unlock()
+            }
         }
         // Log.d("BEACON", "ended")
     }
@@ -75,8 +78,9 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
         while (true) {
             // val s = context.broadcast_socket
             // blocks?? Log.d("listen", "${s}, ports=${s?.port}/${s?.localPort} closed=${s?.isClosed} bound=${s?.isBound}")
-            try { context.broadcast_socket?.receive(ingram) }
-            catch (e: Exception) {
+            try {
+                context.broadcast_socket?.receive(ingram)
+            } catch (e: Exception) {
                 // Log.d("Broadcast listen", "e=${e}, bsock=${context.broadcast_socket}")
                 sleep(UDP_BROADCAST_INTERVAL) // wait for better conditions
                 continue

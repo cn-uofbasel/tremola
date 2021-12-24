@@ -1,34 +1,40 @@
 package nz.scuttlebutt.tremola
 
 import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Toast
 import com.google.zxing.integration.android.IntentIntegrator
-import org.json.JSONObject
-
 import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
 import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.peering.RpcInitiator
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
-import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUpThread
+import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUp
+import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUpBluetooth
+import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUpUDP
 import nz.scuttlebutt.tremola.utils.Constants
 import nz.scuttlebutt.tremola.utils.getBroadcastAddress
 import nz.scuttlebutt.tremola.utils.getLocalIpAddress
+import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.Executors
 
 
 // pt 3 in https://betterprogramming.pub/5-android-webview-secrets-you-probably-didnt-know-b23f8a8b5a0c
 
-class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val webView: WebView) {
+class WebAppInterface(private val act: Activity, val tremolaState: TremolaState, private val webView: WebView) {
 
-    private var lookUpThread: LookUpThread? = null;
+    private var lookUpUDP: LookUpUDP? = null
+    private var lookUpBluetooth: LookUpBluetooth? = null
+    private var lookUp: LookUp? = null
 
     @JavascriptInterface
     fun onFrontendRequest(s: String) {
@@ -75,8 +81,10 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
                 val clipboard = tremolaState.context.getSystemService(ClipboardManager::class.java)
                 val clip = ClipData.newPlainText("simple text", json)
                 clipboard.setPrimaryClip(clip)
-                Toast.makeText(act, "secret key was also\ncopied to clipboard",
-                    Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    act, "secret key was also\ncopied to clipboard",
+                    Toast.LENGTH_LONG
+                ).show()
             }
             "sync" -> {
                 addPub(args[1])
@@ -92,23 +100,30 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
                 act.finishAffinity()
             }
             "add:contact" -> { // ID and alias
-                tremolaState.addContact(args[1],
-                    Base64.decode(args[2], Base64.NO_WRAP).decodeToString())
+                tremolaState.addContact(
+                    args[1],
+                    Base64.decode(args[2], Base64.NO_WRAP).decodeToString()
+                )
                 val rawStr = tremolaState.msgTypes.mkFollow(args[1])
-                val evnt = tremolaState.msgTypes.jsonToLogEntry(rawStr,
-                    rawStr.encodeToByteArray())
+                val evnt = tremolaState.msgTypes.jsonToLogEntry(
+                    rawStr,
+                    rawStr.encodeToByteArray()
+                )
                 evnt?.let {
                     rx_event(it) // persist it, propagate horizontally and also up
                     tremolaState.peers.newContact(args[1]) // inform online peers via EBT
                 }
-                    return
+                return
             }
             "priv:post" -> { // atob(text) rcp1 rcp2 ...
                 val rawStr = tremolaState.msgTypes.mkPost(
-                                 Base64.decode(args[1], Base64.NO_WRAP).decodeToString(),
-                                 args.slice(2..args.lastIndex))
-                val evnt = tremolaState.msgTypes.jsonToLogEntry(rawStr,
-                                            rawStr.encodeToByteArray())
+                    Base64.decode(args[1], Base64.NO_WRAP).decodeToString(),
+                    args.slice(2..args.lastIndex)
+                )
+                val evnt = tremolaState.msgTypes.jsonToLogEntry(
+                    rawStr,
+                    rawStr.encodeToByteArray()
+                )
                 evnt?.let { rx_event(it) } // persist it, propagate horizontally and also up
                 return
             }
@@ -124,22 +139,43 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
                         rpcStream.defineServices(RpcServices(tremolaState))
                         rpcStream.startPeering(h[0], h[1].toInt(), seed)
                     }
-                    Toast.makeText(act, "Pub is being contacted ..",
-                        Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        act, "Pub is being contacted ..",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } catch (e: Exception) {
-                    Toast.makeText(act, "Problem parsing invite code",
-                        Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        act, "Problem parsing invite code",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
             "look_up" -> {
                 val shortname = args[1];
 //                Toast.makeText(act, "I DID IT!!!: $shortname", Toast.LENGTH_SHORT).show()
                 try {
-                    if (lookUpThread == null) {
-                        lookUpThread = LookUpThread(getLocalIpAddress(act),
-                            Constants.SSB_IPV4_UDPPORT, tremolaState.idStore.identity)
+                    if (lookUp == null) {
+                        lookUp = LookUp(getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT, tremolaState.idStore.identity, act)
                     }
-                    lookUpThread!!.sendQuery(getBroadcastAddress(act).hostAddress, shortname)
+                    lookUp!!.prepareQuery(getBroadcastAddress(act).hostAddress, shortname)
+                    lookUp!!.start();
+
+                    // TODO Add Bluetooth
+//                    if (lookUpUDP == null) {
+//                        lookUpUDP = LookUpUDP(
+//                            getLocalIpAddress(act),
+//                            Constants.SSB_IPV4_UDPPORT, tremolaState.idStore.identity
+//                        )
+//                    }
+//                    lookUpUDP!!.sendQuery(getBroadcastAddress(act).hostAddress, shortname)
+//                    if (lookUpBluetooth == null) {
+//                        val bluetoothManager = act.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+//                        val bluetoothAdapter = bluetoothManager.adapter
+//                        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled)
+//                            Log.e("BLUETOOTH", "Bluetooth disabled")
+//                        lookUpBluetooth = LookUpBluetooth(bluetoothAdapter)
+//                        lookUpBluetooth.sendMessage(msg)
+//                    }
                 } catch (e: IOException) {
                     Log.e("BROADCAST", "Failed to obtain broadcast address")
                 } catch (e: Exception) {
@@ -173,8 +209,10 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
         Log.d("D/importIdentity", secret)
         if (tremolaState.idStore.setNewIdentity(Base64.decode(secret, Base64.DEFAULT))) {
             // FIXME: remove all decrypted content in the database, try to decode new one
-            Toast.makeText(act, "Imported of ID worked. You must restart the app.",
-                Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                act, "Imported of ID worked. You must restart the app.",
+                Toast.LENGTH_SHORT
+            ).show()
             return true
         }
         Toast.makeText(act, "Import of new ID failed.", Toast.LENGTH_LONG).show()
@@ -185,9 +223,11 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
         Log.d("D/addPub", pubstring)
         val components = pubstring.split(":")
         tremolaState.addPub(
-            Pub(lid = "@" + components[3] + ".ed25519",
+            Pub(
+                lid = "@" + components[3] + ".ed25519",
                 host = components[1],
-                port = components[2].split('~')[0].toInt())
+                port = components[2].split('~')[0].toInt()
+            )
         )
     }
 
@@ -215,14 +255,39 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
     }
 
     fun acceptLookUp(incomingRequest: String) {
-        if (lookUpThread == null) {
-            lookUpThread = LookUpThread(
-                getLocalIpAddress(act),
-                Constants.SSB_IPV4_UDPPORT,
-                tremolaState.idStore.identity
-            )
+        if (lookUp == null) {
+            lookUp = LookUp(getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT, tremolaState.idStore.identity, act)
         }
-        lookUpThread?.storeIncomingLookup(incomingRequest)
-        lookUpThread?.start()
-    }
+        lookUp!!.acceptQuery(incomingRequest)
+        lookUp!!.start()
+
+        Log.e("BLUETOOTH", "I'm in!")
+//        if (fromUDP) {
+//        try {
+//            //TODO: pair with bluetooth
+//            if (lookUpBluetooth == null) {
+//                val bluetoothManager = act.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+//                val bluetoothAdapter = bluetoothManager.adapter
+//                if (bluetoothAdapter == null || !bluetoothAdapter!!.isEnabled) {
+//                    Log.e("BLUETOOTH", "Bluetooth disabled")
+//                }
+//                lookUpBluetooth = LookUpBluetooth(bluetoothAdapter)
+//                lookUpBluetooth!!.scanLeDevice()
+//            }
+//        } catch (e: Exception) {
+//            Log.e("BLUETOOTH", e.toString())
+//        }
+//        Log.e("BLUETOOTH", "Bluetooth done !!!")
+//
+//        if (lookUpUDP == null) {
+//            lookUpUDP = LookUpUDP(
+//                getLocalIpAddress(act),
+//                Constants.SSB_IPV4_UDPPORT,
+//                tremolaState.idStore.identity
+//            )
+//        }
+//        lookUpUDP?.storeIncomingLookup(incomingRequest, getBroadcastAddress(act).hostAddress, Constants.SSB_IPV4_UDPPORT)
+//        lookUpUDP?.start()
+//    }
+}
 }

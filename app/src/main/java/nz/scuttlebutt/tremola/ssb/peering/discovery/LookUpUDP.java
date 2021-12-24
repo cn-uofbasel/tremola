@@ -13,46 +13,33 @@ import java.util.LinkedList;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class LookUpThread extends Thread {
+public class LookUpUDP extends LookUpClient {
 
-    private final int port;
-    private final String localAddress;
-    private final nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
     private String broadcastMessage;
     private final int HOP_COUNT = 4;
     private static int queryIdentifier = 0;
     private String incomingRequest;
     private LinkedList<ReceivedQuery> logOfReceivedQueries;
+    private int outgoingPort;
+    private String broadcastAddress;
 
-    public LookUpThread(String ipAddress, int port, SSBid ed25519KeyPair) {
-        assert ipAddress != null;
-        this.port = port;
-        this.localAddress = ipAddress;
-        this.ed25519KeyPair = ed25519KeyPair;
+    public LookUpUDP(String ipAddress, int port, SSBid ed25519KeyPair) {
+        super(ipAddress, port, ed25519KeyPair);
     }
 
-    private void createMessage(String ipAddress, int port, SSBid ed25519KeyPair, String targetName) {
-        JSONObject message = new JSONObject();
-        String selfMultiServerAddress = "net:" + ipAddress + ":" + port + "~shs:" + ed25519KeyPair.toExportString();
-        try {
-            message.put("msa", selfMultiServerAddress);
-            message.put("queryID", queryIdentifier++);
-            message.put("hop", HOP_COUNT);
-            message.put("targetName", targetName);
-        } catch (JSONException e) {
-            Log.e("LOOKUP_JSON", e.getMessage());
-        }
-        broadcastMessage = message.toString();
+
+
+    public void prepareQuery(String brodcastAddress) {
+        this.broadcastAddress = brodcastAddress;
+        this.outgoingPort = port;
     }
 
-    public void sendQuery(String broadcastAddress, String targetName) {
-        createMessage(localAddress, port, ed25519KeyPair, targetName);
+    @Override
+    public void sendQuery(String broadcastMessage) {
         sendMessage(broadcastAddress, port, broadcastMessage);
-        Log.d("LOOKUP", broadcastMessage);
     }
 
     private void sendMessage(String broadcastAddress, int port, String message) {
-        Log.e("SEND", message);
         try {
             final DatagramSocket datagramSocket = new DatagramSocket();
             datagramSocket.setBroadcast(true);
@@ -68,32 +55,14 @@ public class LookUpThread extends Thread {
             Log.d("Broadcast Address", receiverAddress.toString());
 
             // TODO: how many times should it send the broadcast?
-            Timer sendTimer = new Timer();
-            sendTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    try {
-                        datagramSocket.send(datagramPacket);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
-                }
-            }, 0, 1000);
-
-
-        } catch (SocketException e) {
-            e.printStackTrace();
-        } catch (UnknownHostException e) {
+            datagramSocket.send(datagramPacket);
+        } catch (IOException e) {
             e.printStackTrace();
         }
-        Log.e("SENT", "!!!" + message);
     }
 
-    /**
-     * Implemented as a thread not to block udp.listen()
-     */
-    public void run() {
+    @Override
+    public void processQuery() {
         Log.d("INPUT", incomingRequest);
         if (logOfReceivedQueries == null)
             logOfReceivedQueries = new LinkedList<>();
@@ -160,8 +129,10 @@ public class LookUpThread extends Thread {
         return false; //!receivedShortName.equals(myShortName);
     }
 
-    public void storeIncomingLookup(@NotNull String incomingRequest) {
+    public void storeIncomingLookup(@NotNull String incomingRequest, String broadcastAddress, int outgoingPort) {
         this.incomingRequest = incomingRequest;
+        this.broadcastAddress = broadcastAddress;
+        this.outgoingPort = outgoingPort;
         // TODO : check that it's not processing a request
     }
 
