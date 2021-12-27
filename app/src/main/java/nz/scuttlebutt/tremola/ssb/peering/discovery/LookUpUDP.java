@@ -55,10 +55,5 @@ public class LookUpUDP extends LookUpClient {
 //        reply = [initiatorId, queryId, targetShortName, targetId, hopCount].asJSON
 //        send(reply, to: initiator)
     }
-
-    private String b32encode(String bytes) {
-        // TODO translate this to java
-        return bytes;
-    }
 }
 

@@ -306,7 +306,9 @@ function qr_scan_confirmed() {
  */
 function look_up(shortname) {
   shortname = shortname.toUpperCase()
-  if (shortname.search("^[A-Z0-9]{5}-?[A-Z0-9]{5}$") !== -1) {
+  if (shortname.search("^[A-Z0-9]{5}[A-Z0-9]{5}$") !== -1)
+    shortname = shortname.slice(0, 5) + '-' + shortname.slice(5, 10)
+  if (shortname.search("^[A-Z0-9]{5}-[A-Z0-9]{5}$") !== -1) {
     closeOverlay()
     backend("look_up " + shortname);
   } else {

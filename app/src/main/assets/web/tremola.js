@@ -491,6 +491,7 @@ function b32encode(bytes) {
     return b32;
 }
 
+// TODO : it takes only the first 7 char of b?
 function id2b32(str) { // derive a shortname from the SSB id
   try {
     var b = atob(str.substr(1, str.length-9));

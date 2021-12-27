@@ -32,8 +32,6 @@ import java.util.concurrent.Executors
 
 class WebAppInterface(private val act: Activity, val tremolaState: TremolaState, private val webView: WebView) {
 
-    private var lookUpUDP: LookUpUDP? = null
-    private var lookUpBluetooth: LookUpBluetooth? = null
     private var lookUp: LookUp? = null
 
     @JavascriptInterface
@@ -155,27 +153,13 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
 //                Toast.makeText(act, "I DID IT!!!: $shortname", Toast.LENGTH_SHORT).show()
                 try {
                     if (lookUp == null) {
-                        lookUp = LookUp(getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT, tremolaState.idStore.identity, act)
+                        lookUp = LookUp(
+                            getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT,
+                            tremolaState.idStore.identity, act, tremolaState
+                        )
                     }
                     lookUp!!.prepareQuery(getBroadcastAddress(act).hostAddress, shortname)
                     lookUp!!.start();
-
-                    // TODO Add Bluetooth
-//                    if (lookUpUDP == null) {
-//                        lookUpUDP = LookUpUDP(
-//                            getLocalIpAddress(act),
-//                            Constants.SSB_IPV4_UDPPORT, tremolaState.idStore.identity
-//                        )
-//                    }
-//                    lookUpUDP!!.sendQuery(getBroadcastAddress(act).hostAddress, shortname)
-//                    if (lookUpBluetooth == null) {
-//                        val bluetoothManager = act.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-//                        val bluetoothAdapter = bluetoothManager.adapter
-//                        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled)
-//                            Log.e("BLUETOOTH", "Bluetooth disabled")
-//                        lookUpBluetooth = LookUpBluetooth(bluetoothAdapter)
-//                        lookUpBluetooth.sendMessage(msg)
-//                    }
                 } catch (e: IOException) {
                     Log.e("BROADCAST", "Failed to obtain broadcast address")
                 } catch (e: Exception) {
@@ -256,38 +240,12 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
 
     fun acceptLookUp(incomingRequest: String) {
         if (lookUp == null) {
-            lookUp = LookUp(getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT, tremolaState.idStore.identity, act)
+            lookUp = LookUp(
+                getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT,
+                tremolaState.idStore.identity, act, tremolaState
+            )
         }
         lookUp!!.acceptQuery(incomingRequest)
         lookUp!!.start()
-
-        Log.e("BLUETOOTH", "I'm in!")
-//        if (fromUDP) {
-//        try {
-//            //TODO: pair with bluetooth
-//            if (lookUpBluetooth == null) {
-//                val bluetoothManager = act.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-//                val bluetoothAdapter = bluetoothManager.adapter
-//                if (bluetoothAdapter == null || !bluetoothAdapter!!.isEnabled) {
-//                    Log.e("BLUETOOTH", "Bluetooth disabled")
-//                }
-//                lookUpBluetooth = LookUpBluetooth(bluetoothAdapter)
-//                lookUpBluetooth!!.scanLeDevice()
-//            }
-//        } catch (e: Exception) {
-//            Log.e("BLUETOOTH", e.toString())
-//        }
-//        Log.e("BLUETOOTH", "Bluetooth done !!!")
-//
-//        if (lookUpUDP == null) {
-//            lookUpUDP = LookUpUDP(
-//                getLocalIpAddress(act),
-//                Constants.SSB_IPV4_UDPPORT,
-//                tremolaState.idStore.identity
-//            )
-//        }
-//        lookUpUDP?.storeIncomingLookup(incomingRequest, getBroadcastAddress(act).hostAddress, Constants.SSB_IPV4_UDPPORT)
-//        lookUpUDP?.start()
-//    }
-}
+    }
 }
