@@ -5,16 +5,24 @@ import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.util.Log;
 import nz.scuttlebutt.tremola.ssb.TremolaState;
+import nz.scuttlebutt.tremola.ssb.core.Crypto;
 import nz.scuttlebutt.tremola.ssb.core.SSBid;
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedList;
 import java.util.Objects;
+
+import static nz.scuttlebutt.tremola.ssb.core.Crypto.signDetached;
 
 public class LookUp extends Thread {
 
@@ -27,10 +35,11 @@ public class LookUp extends Thread {
     private String incomingRequest = null;
     private LinkedList<ReceivedQuery> logOfReceivedQueries;
     private final LookUpUDP lookUpUDP;
-    private final LookUpBluetooth lookUpBluetooth;
+    private LookUpBluetooth lookUpBluetooth;
     private String udpBroadcastAddress;
     private String targetName;
     private final String B32ENC_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    private String incomingAnswer;
 
 
     public LookUp(String ipAddress, int port, SSBid ed25519KeyPair, Context act, TremolaState tremolaState) {
@@ -45,58 +54,91 @@ public class LookUp extends Thread {
         BluetoothManager bluetoothManager = (BluetoothManager) act.getSystemService(Context.BLUETOOTH_SERVICE);
         BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
-            Log.e("BLUETOOTH", "Bluetooth disabled");
+            Log.w("BLUETOOTH", "Bluetooth disabled");
+        } else {
+            lookUpBluetooth = new LookUpBluetooth(ipAddress, port, ed25519KeyPair, bluetoothAdapter);
         }
-        assert bluetoothAdapter != null;
-        lookUpBluetooth = new LookUpBluetooth(ipAddress, port, ed25519KeyPair, bluetoothAdapter);
     }
 
     /**
      * Store the needed information before launching the Thread.
-     * @param broadcastAddress  the udp address to broadcast the query
-     * @param targetName        the target name written by the user
+     * @param broadcastAddress the udp address to broadcast the query
+     * @param targetName       the target name written by the user
      */
-    public void prepareQuery(String broadcastAddress, String targetName) {
+    public boolean prepareQuery(String broadcastAddress, String targetName) {
         this.udpBroadcastAddress = broadcastAddress;
         this.targetName = targetName;
-        searchDataBase(targetName);
-        Log.e("COMPARE", "Result is " + keyIsTarget(targetName, ed25519KeyPair.toRef()));
+        return searchDataBase(targetName) == null;
+    }
+
+    /**
+     * Store a request received by any mean (for now udp or bluetooth)
+     * @param incomingRequest the received query
+     */
+    public void acceptQuery(@NotNull String incomingRequest) {
+        this.incomingRequest = incomingRequest;
+    }
+
+    /**
+     * Store the value received from the second step (to close a query).
+     * @param incomingAnswer a public key as answer
+     */
+    public void acceptReply(@NotNull String incomingAnswer) {
+        this.incomingAnswer = incomingAnswer;
+    }
+
+    /**
+     * Implemented as a thread not to block udp.listen().
+     * IncomingRequest is null if the query was received  from the front-end
+     */
+    public void run() {
+        if (incomingAnswer != null) {
+            processReply();
+            incomingAnswer = null;
+        } else if (incomingRequest != null) {
+            processQuery();
+            incomingRequest = null;
+        } else {
+            sendQuery();
+        }
+        this.interrupt();
     }
 
     /**
      * Create the payload of the query.
-     * @param targetName  the queried shortName
-     * @return            the payload
+     *
+     * @param targetName the queried shortName
+     * @return the payload
      */
     private String createMessage(String targetName) {
-        String selfMultiServerAddress = "net:" + localAddress + ":" + port + "~shs:" + ed25519KeyPair.toExportString();
-
-        return createMessage(targetName, selfMultiServerAddress, queryIdentifier++, HOP_COUNT);
+        String selfMultiServerAddress = "net:" + localAddress + ":" + port + "~shs:" + ed25519KeyPair.toRef();
+        return createMessage(targetName, selfMultiServerAddress, queryIdentifier++, HOP_COUNT, null);
     }
-    private String createMessage(String targetName, String multiServerAddress, int queryId, int hopCount) {
+
+    /**
+     * Create a message to broadcast
+     *
+     * @param targetName         the name of the target
+     * @param multiServerAddress the address of the query initiator
+     * @param queryId            an id to identify the query
+     * @param hopCount           the decrementing number of hop as a time-to-live
+     * @return the message ready to send
+     */
+    private String createMessage(String targetName, String multiServerAddress, int queryId, int hopCount, byte[] signature) {
         JSONObject message = new JSONObject();
         try {
             message.put("targetName", targetName);
             message.put("msa", multiServerAddress);
             message.put("queryID", queryId);
+            if (signature == null)
+                signature = signDetached(message.toString().getBytes(StandardCharsets.UTF_8),
+                        Objects.requireNonNull(ed25519KeyPair.getSigningKey()));
+            message.put("signature", signature);
             message.put("hop", hopCount);
         } catch (JSONException e) {
             Log.e("LOOKUP_JSON", e.getMessage());
         }
         return message.toString();
-    }
-
-        /**
-         * Implemented as a thread not to block udp.listen().
-         * IncomingRequest is null if the query was received  from the front-end
-         */
-    public void run() {
-        if (incomingRequest == null) {
-            sendQuery();
-        } else {
-            processQuery();
-            incomingRequest = null;
-        }
     }
 
     /**
@@ -110,7 +152,7 @@ public class LookUp extends Thread {
             JSONObject data = new JSONObject(incomingRequest);
             String msa = data.get("msa").toString();
             if (msa.endsWith(Objects.requireNonNull(ed25519KeyPair.toExportString())))
-                return; //I'm the initiator
+                return; // I'm the initiator
             int queryID = data.getInt("queryID");
             String[] multiServerAddress = msa.split("~");
             String initID = multiServerAddress[1].split(":")[1];
@@ -124,15 +166,33 @@ public class LookUp extends Thread {
             }
             String shortName = data.getString("targetName");
             int hopCount = data.getInt("hop");
+            byte[] signature = data.getString("signature").getBytes(StandardCharsets.UTF_8);
+            JSONObject message = new JSONObject();
+            try {
+                message.put("targetName", targetName);
+                message.put("msa", msa);
+                message.put("queryID", queryID);
+                if (!Crypto.verifySignDetached(signature,
+                        message.toString().getBytes(StandardCharsets.UTF_8),
+                        initID.substring(1, initID.length() - 9).
+                                getBytes(StandardCharsets.UTF_8))) {
+                    Log.e("VERIFY", "verify failure");
+                    // TODO fix signature
+                    // return;
+                }
+                Log.d("VERIFY", "Verified successfully!!!");
+            } catch (Exception e) {
+                Log.e("VERIFY", msa);
+            }
             logOfReceivedQueries.add(
                     new ReceivedQuery(shortName, initID, hopCount, queryID));
 
             String targetPublicKey = searchDataBase(shortName);
             if (targetPublicKey != null) {
-                replyStep2(initID, queryID, shortName, hopCount, targetPublicKey);
+                replyStep2(initID, queryID, shortName, hopCount, targetPublicKey, multiServerAddress[0]);
             } else {
                 if (hopCount > 0) {
-                    String msg = createMessage(targetName, msa, queryID, hopCount - 1);
+                    String msg = createMessage(targetName, msa, queryID, hopCount - 1, signature);
                     if (lookUpUDP != null) {
                         lookUpUDP.sendQuery(msg);
                     }
@@ -143,22 +203,70 @@ public class LookUp extends Thread {
                 }
             }
         } catch (Exception e) {
-            Log.e("PROCESS_QUERY", e.getMessage());
+            Log.e("PROCESS_QUERY", "Problem in process");
+            e.printStackTrace();
+        }
+    }
+
+    private void processReply() {
+        Log.d("REPLY", incomingAnswer);
+        try {
+            JSONObject data = new JSONObject(incomingAnswer);
+            String initID = data.getString("initiatorId");
+            int queryId = data.getInt("queryID");
+            String targetShortName = data.getString("targetName");
+            String targetID = data.getString("targetID");
+            int hopCount = data.getInt("hop");
+            byte[] signature = data.getString("signature").getBytes(StandardCharsets.UTF_8);
+            String signingKey = data.getString("friendId");
+            JSONObject message = new JSONObject();
+            try {
+                message.put("initiatorId", initID);
+                message.put("queryId", queryId);
+                message.put("targetName", targetShortName);
+                message.put("targetId", targetID);
+                message.put("hop", hopCount);
+                message.put("friendId", signingKey);
+                if (!Crypto.verifySignDetached(signature,
+                        message.toString().getBytes(StandardCharsets.UTF_8),
+                        signingKey.getBytes(StandardCharsets.UTF_8))) {
+                    Log.e("VERIFY", "verify failure");
+                    // TODO fix signature
+                    // return;
+                }
+                Log.d("VERIFY", "Verified successfully!!!");
+            } catch (Exception e) {
+                Log.e("VERIFY", signingKey);
+            }
+            if (!initID.equals(ed25519KeyPair.toRef())) {
+                return; // I am not the initiator of this request
+            }
+
+            String targetPublicKey = searchDataBase(targetShortName);
+            if (targetPublicKey != null) {
+                // TODO Contact already exists in database; I have to choose what I want
+                return;
+            }
+            tremolaState.addContact(targetID, null);
+        } catch (Exception e) {
+            Log.e("PROCESS_QUERY", "Problem in process");
+            e.printStackTrace();
         }
     }
 
     /**
      * Search in the database if the targetName is known.
-     * @param targetShortName  the target 10 char shortName
-     * @return                 the public key if found, else null
+     *
+     * @param targetShortName the target 10 char shortName
+     * @return the public key if found, else null
      */
     private String searchDataBase(String targetShortName) {
         if (keyIsTarget(targetShortName, ed25519KeyPair.toRef())) {
             return ed25519KeyPair.toExportString();
         } else {
-            for (Contact contact :tremolaState.getContactDAO().getAll()) {
+            for (Contact contact : tremolaState.getContactDAO().getAll()) {
                 if (keyIsTarget(targetShortName, contact.getLid())) {
-                    Log.e("CONTACT", contact.getAlias());
+                    Log.d("CONTACT", contact.getAlias());
                     return "@" + contact.getLid() + ".ed25519";
                 }
             }
@@ -172,6 +280,7 @@ public class LookUp extends Thread {
      */
     private void sendQuery() {
         String broadcastMessage = createMessage(targetName);
+        Log.d("SIGNING", broadcastMessage);
         if (lookUpUDP != null) {
             // TODO port is a constant, and always the same for in and out?
             lookUpUDP.prepareQuery(udpBroadcastAddress);
@@ -183,25 +292,49 @@ public class LookUp extends Thread {
         }
     }
 
-    /**
-     * Store a request received by any mean (for now udp or bluetooth)
-     * @param incomingRequest  the received query
-     */
-    public void acceptQuery(@NotNull String incomingRequest) {
-        this.incomingRequest = incomingRequest;
-    }
+    private void replyStep2(String initID, int queryId, String targetShortName, int hopCount, String targetID, String initAddress) {
+        // TODO check
+        JSONObject reply = new JSONObject();
+        try {
+            reply.put("initiatorId", initID);
+            reply.put("queryId", queryId);
+            reply.put("targetName", targetShortName);
+            reply.put("targetId", targetID);
+            reply.put("hop", hopCount);
+            reply.put("friendId", ed25519KeyPair.getSigningKey());
+            byte[] signature = signDetached(reply.toString().getBytes(StandardCharsets.UTF_8),
+                    Objects.requireNonNull(ed25519KeyPair.getSigningKey()));
+            reply.put("signature", signature);
+        } catch (JSONException e) {
+            Log.e("LOOKUP_JSON", e.getMessage());
+        }
+        String answer = reply.toString();
+        try {
+            String[] address = initAddress.split(":");
+            final DatagramSocket datagramSocket = new DatagramSocket();
+            InetAddress receiverAddress = InetAddress.getByName(address[1]);
 
-    private void replyStep2(String initID, int queryID, String targetShortName, int hopCount, String targetID) {
-        // TODO
-//        reply = [initiatorId, queryId, targetShortName, targetId, hopCount].asJSON
-//        send(reply, to: initiator)
+            final DatagramPacket datagramPacket = new DatagramPacket(
+                    answer.getBytes(),
+                    answer.length(),
+                    receiverAddress,
+                    Integer.parseInt(address[2])
+            );
+
+            Log.d("Reply Address", receiverAddress.toString());
+
+            datagramSocket.send(datagramPacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * Compare a public key with a short name.
-     * @param receivedShortName  The 11 char (including a '-') short name
-     * @param publicKey          The public key in the form "@[...].ed25519
-     * @return                   true if the 2 match
+     *
+     * @param receivedShortName The 11 char (including a '-') short name
+     * @param publicKey         The public key in the form "@[...].ed25519
+     * @return true if the 2 match
      */
     private boolean keyIsTarget(String receivedShortName, String publicKey) {
         String computedShortName = id2b32(publicKey);
@@ -220,8 +353,7 @@ public class LookUp extends Thread {
             b = b.substring(0, 10);
             return b.substring(0, 5) + '-' + b.substring(5);
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println(e);
+            Log.e("SHORTNAME", e.getMessage());
         }
         return "??";
     }

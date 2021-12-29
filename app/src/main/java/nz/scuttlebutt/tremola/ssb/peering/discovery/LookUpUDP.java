@@ -3,15 +3,9 @@ package nz.scuttlebutt.tremola.ssb.peering.discovery;
 
 import android.util.Log;
 import nz.scuttlebutt.tremola.ssb.core.SSBid;
-import org.jetbrains.annotations.NotNull;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.io.IOException;
 import java.net.*;
-import java.util.LinkedList;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class LookUpUDP extends LookUpClient {
 
@@ -45,15 +39,11 @@ public class LookUpUDP extends LookUpClient {
 
             // TODO: how many times should it send the broadcast?
             datagramSocket.send(datagramPacket);
+            datagramSocket.close();
         } catch (IOException e) {
+            Log.e("SendMessage", e.getMessage());
             e.printStackTrace();
         }
-    }
-
-    private void replyStep2(String initID, int queryID, String targetShortName, int hopCount) {
-        // TODO
-//        reply = [initiatorId, queryId, targetShortName, targetId, hopCount].asJSON
-//        send(reply, to: initiator)
     }
 }
 

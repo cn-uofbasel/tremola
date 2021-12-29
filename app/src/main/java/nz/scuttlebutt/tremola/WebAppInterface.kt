@@ -1,11 +1,8 @@
 package nz.scuttlebutt.tremola
 
 import android.app.Activity
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Context
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
@@ -18,8 +15,6 @@ import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.peering.RpcInitiator
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
 import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUp
-import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUpBluetooth
-import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUpUDP
 import nz.scuttlebutt.tremola.utils.Constants
 import nz.scuttlebutt.tremola.utils.getBroadcastAddress
 import nz.scuttlebutt.tremola.utils.getLocalIpAddress
@@ -150,7 +145,6 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
             }
             "look_up" -> {
                 val shortname = args[1];
-//                Toast.makeText(act, "I DID IT!!!: $shortname", Toast.LENGTH_SHORT).show()
                 try {
                     if (lookUp == null) {
                         lookUp = LookUp(
@@ -158,8 +152,10 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                             tremolaState.idStore.identity, act, tremolaState
                         )
                     }
-                    lookUp!!.prepareQuery(getBroadcastAddress(act).hostAddress, shortname)
-                    lookUp!!.start();
+                    if (lookUp!!.prepareQuery(getBroadcastAddress(act).hostAddress, shortname))
+                        (act as MainActivity).launchLookUpThread(lookUp)
+                    else
+                        Log.d("LOOKUP", "$shortname is already in contacts")
                 } catch (e: IOException) {
                     Log.e("BROADCAST", "Failed to obtain broadcast address")
                 } catch (e: Exception) {
@@ -238,6 +234,9 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
         eval(cmd)
     }
 
+    /**
+     * Accept an incoming query and send it to lookUp for processing
+     */
     fun acceptLookUp(incomingRequest: String) {
         if (lookUp == null) {
             lookUp = LookUp(
@@ -246,6 +245,21 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
             )
         }
         lookUp!!.acceptQuery(incomingRequest)
-        lookUp!!.start()
+        (act as MainActivity).launchLookUpThread(lookUp)
+    }
+
+    /**
+     * Take an incoming reply of a query and send it to lookUp
+     */
+    fun processQueryReply(incomingAnswer: String) {
+        // TODO("Not yet implemented")
+        if (lookUp == null) {
+            lookUp = LookUp(
+                getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT,
+                tremolaState.idStore.identity, act, tremolaState
+            )
+        }
+        lookUp!!.acceptReply(incomingAnswer)
+
     }
 }

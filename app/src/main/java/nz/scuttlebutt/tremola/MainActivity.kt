@@ -18,6 +18,7 @@ import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.peering.RpcResponder
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
 import nz.scuttlebutt.tremola.ssb.peering.UDPbroadcast
+import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUp
 import nz.scuttlebutt.tremola.utils.Constants
 import java.lang.Thread.sleep
 import java.net.DatagramSocket
@@ -36,11 +37,12 @@ class MainActivity : Activity() {
         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
         .build()
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var t3: LookUp? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        setRequestedOrientation (ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         setContentView(R.layout.activity_main)
         tremolaState = TremolaState(this)
@@ -72,6 +74,7 @@ class MainActivity : Activity() {
                     server_socket = null
                     */
                 }
+
                 override fun onLinkPropertiesChanged(nw: Network, prop: LinkProperties) {
                     Log.d("onLinkPropertiesChanged", "${nw} ${prop}")
                     super.onLinkPropertiesChanged(nw, prop)
@@ -96,7 +99,7 @@ class MainActivity : Activity() {
         udp = UDPbroadcast(this, tremolaState.wai)
         val lck = ReentrantLock()
 
-        val t0 = thread(isDaemon=true) {
+        val t0 = thread(isDaemon = true) {
             try {
                 udp!!.beacon(tremolaState.idStore.identity.verifyKey, lck, Constants.SSB_IPV4_TCPPORT)
             } catch (e: Exception) {
@@ -104,38 +107,56 @@ class MainActivity : Activity() {
             }
         }
 
-        val t1 = thread(isDaemon=true) {
+        val t1 = thread(isDaemon = true) {
             val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
             val mLock = wifi.createMulticastLock("lock")
             mLock.acquire()
             try {
                 udp!!.listen(lck)
             } catch (e: Exception) {
-                Log.d("listen thread", "died ${e}")
+                Log.e("listen thread", "died ${e}" + e.stackTraceToString())
             }
         }
-        val t2 = thread(isDaemon=true)  { // accept loop, robust against reassigned server_socket
-             while (true) {
-                 var socket: Socket?
-                 try {
-                     socket = server_socket!!.accept()
-                 } catch (e: Exception) {
-                     sleep(3000)
-                     continue
-                 }
-                 thread() { // one thread per connection
-                     val rpcStream = RpcResponder(tremolaState, socket,
-                         Constants.SSB_NETWORKIDENTIFIER)
-                     rpcStream.defineServices(RpcServices(tremolaState))
-                     rpcStream.startStreaming()
-                 }
+        val t2 = thread(isDaemon = true) { // accept loop, robust against reassigned server_socket
+            while (true) {
+                var socket: Socket?
+                try {
+                    socket = server_socket!!.accept()
+                } catch (e: Exception) {
+                    sleep(3000)
+                    continue
+                }
+                thread() { // one thread per connection
+                    val rpcStream = RpcResponder(tremolaState, socket,
+                        Constants.SSB_NETWORKIDENTIFIER)
+                    rpcStream.defineServices(RpcServices(tremolaState))
+                    rpcStream.startStreaming()
+                }
             }
         }
+
         t0.priority = 10
         t1.priority = 10
 
         t2.priority = 6
+
         Log.d("Thread priorities", "${t0.priority} ${t1.priority} ${t2.priority}")
+    }
+
+    fun launchLookUpThread(lookup: LookUp?) {
+        try {
+            if (t3 == null)
+                t3 = lookup
+            if (!t3!!.isAlive) {
+                t3?.start();
+            }
+        } catch (e: Exception) {
+            Log.e("Lookup thread", "died ${e}" + e.message)
+            e.printStackTrace();
+        } finally {
+            // I think that's wrong
+            t3 = null
+        }
     }
 
     override fun onBackPressed() {
@@ -175,7 +196,8 @@ class MainActivity : Activity() {
         try {
             (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager)
                 .registerNetworkCallback(networkRequest, networkCallback!!)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+        }
     }
 
     override fun onPause() {
@@ -184,25 +206,34 @@ class MainActivity : Activity() {
         try {
             (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager)
                 .unregisterNetworkCallback(networkCallback!!)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+        }
     }
 
     fun onSaveInstanceState() {
         Log.d("onSaveInstanceState", "")
     }
+
     override fun onStop() {
         Log.d("onStop", "")
         super.onStop()
     }
+
     override fun onDestroy() {
         Log.d("onDestroy", "")
-        try { broadcast_socket?.close() } catch (e: Exception) {}
+        try {
+            broadcast_socket?.close()
+        } catch (e: Exception) {
+        }
         broadcast_socket = null
         super.onDestroy()
     }
 
     private fun mkSockets() {
-        try { broadcast_socket?.close() } catch (e: Exception) {}
+        try {
+            broadcast_socket?.close()
+        } catch (e: Exception) {
+        }
         broadcast_socket = DatagramSocket(
             Constants.SSB_IPV4_UDPPORT, // where to listen
             InetAddress.getByName("0.0.0.0")
@@ -210,8 +241,14 @@ class MainActivity : Activity() {
         broadcast_socket?.broadcast = true
         Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
         val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
-        try { server_socket?.close() } catch (e: Exception) {}
-        server_socket =  ServerSocket(Constants.SSB_IPV4_TCPPORT)
-        Log.d("SERVER TCP addr", "${Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)}:${server_socket!!.localPort}")
+        try {
+            server_socket?.close()
+        } catch (e: Exception) {
+        }
+        server_socket = ServerSocket(Constants.SSB_IPV4_TCPPORT)
+        Log.d(
+            "SERVER TCP addr",
+            "${Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)}:${server_socket!!.localPort}"
+        )
     }
 }

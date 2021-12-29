@@ -36,7 +36,7 @@ public class LookUpBluetooth extends LookUpClient {
                     public void run() {
                         scanning = false;
                         bluetoothLeScanner.stopScan(leScanCallback);
-                        Log.e("BLUETOOTH", "Stop scanning");
+                        Log.d("BLUETOOTH", "Stop scanning");
                     }
                 }, SCAN_PERIOD);
 
@@ -44,11 +44,11 @@ public class LookUpBluetooth extends LookUpClient {
                 // https://developer.android.com/reference/android/bluetooth/le/BluetoothLeScanner#startScan(java.util.List%3Candroid.bluetooth.le.ScanFilter%3E,%20android.bluetooth.le.ScanSettings,%20android.bluetooth.le.ScanCallback)
                 scanning = true;
                 bluetoothLeScanner.startScan(leScanCallback);
-                Log.e("BLUETOOTH", "Start scanning!!!");
+                Log.d("BLUETOOTH", "Start scanning");
             } else {
                 scanning = false;
                 bluetoothLeScanner.stopScan(leScanCallback);
-                Log.e("BLUETOOTH", "!!!!!Error scanning");
+                Log.e("BLUETOOTH", "Error while scanning");
             }
         }
     }
@@ -56,12 +56,12 @@ public class LookUpBluetooth extends LookUpClient {
     private final ScanCallback leScanCallback = new ScanCallback() {
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
-            Log.e("BLUETOOTH", result.toString());
+            Log.d("BLUETOOTH", result.toString());
         }
 
         public void onBatchScanResults(List<ScanResult> results) {
             super.onBatchScanResults(results);
-            Log.e("BLUETOOTH", results.get(0).toString());
+            Log.d("BLUETOOTH", results.get(0).toString());
         }
 
         public void onScanFailed(int errorCode) {
