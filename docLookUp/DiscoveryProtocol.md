@@ -1,14 +1,15 @@
 # Discovery Protocol
--- version 1.0, 13.12.2021
+-- version 1.0.1, 29.12.2021
 
 ## Idea
 The overall goal is to find a peer's public key to be able to start a chat with him/her. As ssb is
 a decentralized network, there is no easy way to find that person. Furthermore, the name of each
 peer is self-attributed thus not unique. In order to find this peer, an Initiator send a UDP
-broadcast asking for the public key of the target. The receiver can either discard the packet if 
+broadcast asking for the public key of the target. The receiver can discard the packet if he
 doesn't understand it or if he already received this packet, transfer it if there is no entry 
-corresponding to the targeted name in its database or send a packet to the query's initiator with 
-the public key it found in its database or he is the target himself.
+corresponding to the targeted name in its database. On the other hand, he can send a packet to 
+the query's initiator with the public key it found in its database, or he is the target himself.
+
 Then, the initiator can contact the target itself who then reply, as a traditional handshake 
 procedure.
 
@@ -51,7 +52,8 @@ This message contains the Target's public key, name (received from the query) an
 Initiator's public key and address and the query identifier, as well as the hop count.
 
 ### 3, 4 and 5: initial handshake 
-Being able to contact the Target, the Initiator can know launch a classic handshake procedure {to
+#### Isn't inside the scope of this work
+Being able to contact the Target, the Initiator can now launch a classic handshake procedure {to
 be described in more details}
 
 
@@ -61,7 +63,7 @@ In order to mitigate spoofing, we have introduced a two-step introduction : firs
 is discovered by a friend who sends this information directly back to the initiator, who in turn
 contacts the target directly. This feature can be used as an addition to the trust given by an 
 answer, because a third party (the Friend) is acknowledging that the Target is indeed a true user.
-Of course it is of no warranty, but it helps to choose in case of different answers.
+Of course, it is of no warranty, but it helps to choose in case of different answers.
 
 
 ## Points to be taken into account:
@@ -72,6 +74,9 @@ criteria have to be described precisely, but we have several hints for that :
   - the number of identical answers
   - information about the peer himself given by lower level's sbb implementation
 
+ -> My idea for that is to add it in the database if the signing is correct, and update it when a 
+new reply comes in, choosing the best of each.
+
 Furthermore, it is possible for the Initiator to start the handshake (step 3) with more than one 
 user. The reply (step 4) can help to make this decision, considering for example its existence, its
 timing, etc. The Initiator can then abort the peering by not closing the handshake (step 5).
@@ -80,7 +85,11 @@ timing, etc. The Initiator can then abort the peering by not closing the handsha
 _____
 To include :
 - an opcode to describe the message's goal
-- encryption / signing of the messages
 - Does a dormant entry need to be discarded / not trusted anymore, i.e. does the entries have a 
   time-to-live?
   
+To do:
+- fix signature
+- fix thread dying
+- add lookup query in the contact database
+- add a GUI response to a successful lookup
