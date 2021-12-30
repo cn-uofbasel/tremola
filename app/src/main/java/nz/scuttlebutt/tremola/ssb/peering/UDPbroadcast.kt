@@ -87,16 +87,9 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
             }
             val incoming = ingram.data.decodeToString(0, ingram.length)
             for (i in incoming.split(";")) {
-                Log.d("rx " + ingram.length, "<${i}>")
-                if (i.substring(0, 8) == "{\"target") {
-                    wai?.acceptLookUp(i)
-                    continue
-                } else if (i.substring(0, 13) == "{\"initiatorId") {
-                    wai?.processQueryReply(i)
-                }
                 if (i == myMark || i.substring(0, 3) != "net")
                     continue
-
+                Log.d("rx " + ingram.length, "<${i}>")
                 if (!(i in local)) // if new, announce it to the frontend
                     wai?.eval("b2f_local_peer('${i}', 'online')")
                 lck.lock();

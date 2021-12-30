@@ -20,6 +20,7 @@ import nz.scuttlebutt.tremola.ssb.peering.RpcServices
 import nz.scuttlebutt.tremola.ssb.peering.UDPbroadcast
 import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUp
 import nz.scuttlebutt.tremola.utils.Constants
+import nz.scuttlebutt.tremola.utils.getLocalIpAddress
 import java.lang.Thread.sleep
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -31,8 +32,10 @@ import kotlin.concurrent.thread
 class MainActivity : Activity() {
     private lateinit var tremolaState: TremolaState
     var broadcast_socket: DatagramSocket? = null
+    var lookup_socket: DatagramSocket? = null
     var server_socket: ServerSocket? = null
     var udp: UDPbroadcast? = null
+    var lookup: LookUp? = null
     val networkRequest = NetworkRequest.Builder()
         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
         .build()
@@ -97,7 +100,9 @@ class MainActivity : Activity() {
             }
         }
         udp = UDPbroadcast(this, tremolaState.wai)
+        lookup = LookUp(getLocalIpAddress(this),this, tremolaState)
         val lck = ReentrantLock()
+        val lookupLock = ReentrantLock()
 
         val t0 = thread(isDaemon = true) {
             try {
@@ -134,29 +139,21 @@ class MainActivity : Activity() {
                 }
             }
         }
+        val t3 = thread(isDaemon = true) {
+            try {
+                lookup!!.listen(Constants.LOOKUP_IPV4_UDPPORT, lookupLock)
+            } catch (e: Exception) {
+                Log.e("lookup thread", "died $e" + e.stackTraceToString())
+            }
+        }
 
         t0.priority = 10
         t1.priority = 10
 
         t2.priority = 6
+        t3.priority = 6
 
-        Log.d("Thread priorities", "${t0.priority} ${t1.priority} ${t2.priority}")
-    }
-
-    fun launchLookUpThread(lookup: LookUp?) {
-        try {
-            if (t3 == null)
-                t3 = lookup
-            if (!t3!!.isAlive) {
-                t3?.start();
-            }
-        } catch (e: Exception) {
-            Log.e("Lookup thread", "died ${e}" + e.message)
-            e.printStackTrace();
-        } finally {
-            // I think that's wrong
-            t3 = null
-        }
+        Log.d("Thread priorities", "${t0.priority} ${t1.priority} ${t2.priority} ${t3.priority}")
     }
 
     override fun onBackPressed() {
@@ -232,6 +229,7 @@ class MainActivity : Activity() {
     private fun mkSockets() {
         try {
             broadcast_socket?.close()
+            lookup_socket?.close()
         } catch (e: Exception) {
         }
         broadcast_socket = DatagramSocket(
@@ -240,6 +238,12 @@ class MainActivity : Activity() {
         )
         broadcast_socket?.broadcast = true
         Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
+        lookup_socket = DatagramSocket(
+            Constants.LOOKUP_IPV4_UDPPORT, // where to listen
+            InetAddress.getByName("0.0.0.0")
+        )
+        lookup_socket?.broadcast = true
+        Log.d("new lookup sock", "${lookup_socket}, UDP port ${lookup_socket?.localPort}")
         val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
         try {
             server_socket?.close()

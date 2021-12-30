@@ -3,6 +3,7 @@ package nz.scuttlebutt.tremola.ssb.peering.discovery;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
+import android.os.Build;
 import android.util.Log;
 import nz.scuttlebutt.tremola.ssb.TremolaState;
 import nz.scuttlebutt.tremola.ssb.core.Crypto;
@@ -21,20 +22,22 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedList;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static nz.scuttlebutt.tremola.ssb.core.Crypto.signDetached;
 
 public class LookUp extends Thread {
 
-    private final int port;
+    private final Context context;
     private final String localAddress;
-    private final nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
+    private int port;
+    private nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
     private final int HOP_COUNT = 4;
     private static int queryIdentifier = 0;
     private final TremolaState tremolaState;
     private String incomingRequest = null;
     private LinkedList<ReceivedQuery> logOfReceivedQueries;
-    private final LookUpUDP lookUpUDP;
+    private LookUpUDP lookUpUDP;
     private LookUpBluetooth lookUpBluetooth;
     private String udpBroadcastAddress;
     private String targetName;
@@ -42,26 +45,31 @@ public class LookUp extends Thread {
     private String incomingAnswer;
 
 
-    public LookUp(String ipAddress, int port, SSBid ed25519KeyPair, Context act, TremolaState tremolaState) {
-        assert ipAddress != null;
-        this.localAddress = ipAddress;
-        this.port = port;
-        this.ed25519KeyPair = ed25519KeyPair;
+    public LookUp(String localAddress, Context context, TremolaState tremolaState) {
         this.tremolaState = tremolaState;
+        this.context = context;
+        this.localAddress = localAddress;
+    }
 
-        lookUpUDP = new LookUpUDP(ipAddress, port, ed25519KeyPair);
+    public void listen(int port, ReentrantLock lock) throws InterruptedException {
+        this.port = port;
+        this.ed25519KeyPair = tremolaState.getIdStore().getIdentity();
 
-        BluetoothManager bluetoothManager = (BluetoothManager) act.getSystemService(Context.BLUETOOTH_SERVICE);
+        lookUpUDP = new LookUpUDP(this, context, port, ed25519KeyPair);
+        lookUpUDP.listen(lock);
+
+        BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
         BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
             Log.w("BLUETOOTH", "Bluetooth disabled");
         } else {
-            lookUpBluetooth = new LookUpBluetooth(ipAddress, port, ed25519KeyPair, bluetoothAdapter);
+            lookUpBluetooth = new LookUpBluetooth(this, context, port, ed25519KeyPair, bluetoothAdapter);
         }
     }
 
     /**
      * Store the needed information before launching the Thread.
+     *
      * @param broadcastAddress the udp address to broadcast the query
      * @param targetName       the target name written by the user
      */
@@ -73,6 +81,7 @@ public class LookUp extends Thread {
 
     /**
      * Store a request received by any mean (for now udp or bluetooth)
+     *
      * @param incomingRequest the received query
      */
     public void acceptQuery(@NotNull String incomingRequest) {
@@ -81,6 +90,7 @@ public class LookUp extends Thread {
 
     /**
      * Store the value received from the second step (to close a query).
+     *
      * @param incomingAnswer a public key as answer
      */
     public void acceptReply(@NotNull String incomingAnswer) {
@@ -130,10 +140,15 @@ public class LookUp extends Thread {
             message.put("targetName", targetName);
             message.put("msa", multiServerAddress);
             message.put("queryID", queryId);
-            if (signature == null)
+            if (signature == null) {
                 signature = signDetached(message.toString().getBytes(StandardCharsets.UTF_8),
                         Objects.requireNonNull(ed25519KeyPair.getSigningKey()));
-            message.put("signature", signature);
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                String signatureString = Base64.getEncoder().encodeToString(signature);
+                Log.e("JSON_CREATE", Base64.getEncoder().encodeToString(signature) + " ... " + signatureString.length());
+                message.put("signature", Base64.getEncoder().encodeToString(signature));
+            }
             message.put("hop", hopCount);
         } catch (JSONException e) {
             Log.e("LOOKUP_JSON", e.getMessage());
@@ -144,8 +159,8 @@ public class LookUp extends Thread {
     /**
      * Process an incoming request by discarding, answering or forwarding it.
      */
-    private void processQuery() {
-        Log.d("INPUT", incomingRequest);
+    public void processQuery() {
+//        Log.d("INPUT", incomingRequest);
         if (logOfReceivedQueries == null)
             logOfReceivedQueries = new LinkedList<>();
         try {
@@ -166,19 +181,31 @@ public class LookUp extends Thread {
             }
             String shortName = data.getString("targetName");
             int hopCount = data.getInt("hop");
-            byte[] signature = data.getString("signature").getBytes(StandardCharsets.UTF_8);
+            String sig = data.getString("signature");
+            byte[] signature = new byte[0];
+//            signature = sig.getBytes(StandardCharsets.UTF_8);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                signature = Base64.getDecoder().decode(sig);
+            }
             JSONObject message = new JSONObject();
             try {
-                message.put("targetName", targetName);
+                message.put("targetName", shortName);
                 message.put("msa", msa);
                 message.put("queryID", queryID);
+                String verifyKey = initID.substring(1, initID.length() - 8);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    String signatureString = Base64.getEncoder().encodeToString(signature);
+                    Log.e("JSON_VERIFY", verifyKey + " ... " + initID);
+
+                }
+
                 if (!Crypto.verifySignDetached(signature,
                         message.toString().getBytes(StandardCharsets.UTF_8),
-                        initID.substring(1, initID.length() - 9).
+                        verifyKey.
                                 getBytes(StandardCharsets.UTF_8))) {
                     Log.e("VERIFY", "verify failure");
                     // TODO fix signature
-                    // return;
+                    return;
                 }
                 Log.d("VERIFY", "Verified successfully!!!");
             } catch (Exception e) {
@@ -208,7 +235,7 @@ public class LookUp extends Thread {
         }
     }
 
-    private void processReply() {
+    public void processReply() {
         Log.d("REPLY", incomingAnswer);
         try {
             JSONObject data = new JSONObject(incomingAnswer);
@@ -278,7 +305,7 @@ public class LookUp extends Thread {
      * Send a query that comes from front end.
      * Must be done for each available medium.
      */
-    private void sendQuery() {
+    public void sendQuery() {
         String broadcastMessage = createMessage(targetName);
         Log.d("SIGNING", broadcastMessage);
         if (lookUpUDP != null) {

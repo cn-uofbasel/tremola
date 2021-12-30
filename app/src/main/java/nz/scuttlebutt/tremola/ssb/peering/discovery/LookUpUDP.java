@@ -1,24 +1,27 @@
 package nz.scuttlebutt.tremola.ssb.peering.discovery;
 
 
+import android.content.Context;
 import android.util.Log;
+import nz.scuttlebutt.tremola.MainActivity;
 import nz.scuttlebutt.tremola.ssb.core.SSBid;
+import nz.scuttlebutt.tremola.utils.Constants;
 
 import java.io.IOException;
 import java.net.*;
+import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class LookUpUDP extends LookUpClient {
 
-    private int outgoingPort;
     private String broadcastAddress;
 
-    public LookUpUDP(String ipAddress, int port, SSBid ed25519KeyPair) {
-        super(ipAddress, port, ed25519KeyPair);
+    public LookUpUDP(LookUp lookUp, Context context, int port, SSBid ed25519KeyPair) {
+        super(lookUp, context, port, ed25519KeyPair);
     }
 
     public void prepareQuery(String broadcastAddress) {
         this.broadcastAddress = broadcastAddress;
-        this.outgoingPort = port; // Necessary?
     }
 
     @Override
@@ -35,14 +38,40 @@ public class LookUpUDP extends LookUpClient {
                     port
             );
 
-            Log.d("Broadcast Address", receiverAddress.toString());
+//            Log.d("Send Packet", new String(datagramPacket.getData()));
 
-            // TODO: how many times should it send the broadcast?
             datagramSocket.send(datagramPacket);
             datagramSocket.close();
         } catch (IOException e) {
             Log.e("SendMessage", e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+
+    public void listen(ReentrantLock lock) throws InterruptedException {
+        byte[] buf = new byte[256];
+        DatagramPacket ingram = new DatagramPacket(buf, buf.length);
+        while (true) {
+            try {
+                Objects.requireNonNull(((MainActivity) context).getLookup_socket()).receive(ingram);
+            } catch (Exception e) {
+                synchronized (lock) {
+                    lock.wait(Constants.Companion.getLOOKUP_INTERVAL());
+                }
+                continue;
+            }
+            String incoming = new String(ingram.getData(), 0, ingram.getLength());
+            for (String i : incoming.split(";")) {
+                Log.d("lu_rx " + ingram.getLength(), "<" + i + ">");
+                if (i.startsWith("{\"target")) {
+                    lookUp.acceptQuery(i);
+                    lookUp.processQuery();
+                } else if (i.startsWith("{\"initiatorId")) {
+                    lookUp.acceptReply(i);
+                    lookUp.processReply();
+                }
+            }
         }
     }
 }

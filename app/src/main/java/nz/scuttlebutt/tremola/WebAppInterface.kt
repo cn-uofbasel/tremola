@@ -14,10 +14,7 @@ import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
 import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.peering.RpcInitiator
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
-import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUp
-import nz.scuttlebutt.tremola.utils.Constants
 import nz.scuttlebutt.tremola.utils.getBroadcastAddress
-import nz.scuttlebutt.tremola.utils.getLocalIpAddress
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.Executors
@@ -26,8 +23,6 @@ import java.util.concurrent.Executors
 // pt 3 in https://betterprogramming.pub/5-android-webview-secrets-you-probably-didnt-know-b23f8a8b5a0c
 
 class WebAppInterface(private val act: Activity, val tremolaState: TremolaState, private val webView: WebView) {
-
-    private var lookUp: LookUp? = null
 
     @JavascriptInterface
     fun onFrontendRequest(s: String) {
@@ -146,20 +141,15 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
             "look_up" -> {
                 val shortname = args[1];
                 try {
-                    if (lookUp == null) {
-                        lookUp = LookUp(
-                            getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT,
-                            tremolaState.idStore.identity, act, tremolaState
-                        )
-                    }
-                    if (lookUp!!.prepareQuery(getBroadcastAddress(act).hostAddress, shortname))
-                        (act as MainActivity).launchLookUpThread(lookUp)
+                    val lookup = (act as MainActivity).lookup
+                    if (lookup!!.prepareQuery(getBroadcastAddress(act).hostAddress, shortname))
+                        lookup!!.sendQuery();
                     else
                         Log.d("LOOKUP", "$shortname is already in contacts")
                 } catch (e: IOException) {
                     Log.e("BROADCAST", "Failed to obtain broadcast address")
                 } catch (e: Exception) {
-                    Log.e("BROADCAST", e.toString())
+                    Log.e("BROADCAST", e.stackTraceToString())
                 }
             }
             else -> {
@@ -232,34 +222,5 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
         cmd += "});"
         Log.d("CMD", cmd)
         eval(cmd)
-    }
-
-    /**
-     * Accept an incoming query and send it to lookUp for processing
-     */
-    fun acceptLookUp(incomingRequest: String) {
-        if (lookUp == null) {
-            lookUp = LookUp(
-                getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT,
-                tremolaState.idStore.identity, act, tremolaState
-            )
-        }
-        lookUp!!.acceptQuery(incomingRequest)
-        (act as MainActivity).launchLookUpThread(lookUp)
-    }
-
-    /**
-     * Take an incoming reply of a query and send it to lookUp
-     */
-    fun processQueryReply(incomingAnswer: String) {
-        // TODO("Not yet implemented")
-        if (lookUp == null) {
-            lookUp = LookUp(
-                getLocalIpAddress(act), Constants.SSB_IPV4_UDPPORT,
-                tremolaState.idStore.identity, act, tremolaState
-            )
-        }
-        lookUp!!.acceptReply(incomingAnswer)
-
     }
 }

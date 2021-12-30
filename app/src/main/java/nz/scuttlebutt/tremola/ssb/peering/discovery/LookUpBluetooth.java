@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.content.Context;
 import android.util.Log;
 import nz.scuttlebutt.tremola.ssb.core.SSBid;
 
@@ -20,10 +21,10 @@ public class LookUpBluetooth extends LookUpClient {
     private final Timer timer = new Timer();
 
     // Stops scanning after 10 seconds.
-    private static final long SCAN_PERIOD = 3000L;
+    private static final long SCAN_PERIOD = 10000L;
 
-    public LookUpBluetooth(String ipAddress, int port, SSBid ed25519KeyPair, BluetoothAdapter bluetoothAdapter) {
-        super(ipAddress, port, ed25519KeyPair);
+    public LookUpBluetooth(LookUp lookUp, Context context, int port, SSBid ed25519KeyPair, BluetoothAdapter bluetoothAdapter) {
+        super(lookUp, context, port, ed25519KeyPair);
         bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
     }
 
@@ -74,8 +75,4 @@ public class LookUpBluetooth extends LookUpClient {
     void sendQuery(String broadcastMessage) {
         //TODO
     }
-
-//    @Override
-//    void processQuery() {
-//    }
 }
