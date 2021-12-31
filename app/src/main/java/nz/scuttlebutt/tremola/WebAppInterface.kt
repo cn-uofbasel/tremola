@@ -145,6 +145,7 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                     if (lookup!!.prepareQuery(getBroadcastAddress(act).hostAddress, shortname))
                         lookup!!.sendQuery();
                     else
+                        lookup!!.sendQuery(); // TODO remove
                         Log.d("LOOKUP", "$shortname is already in contacts")
                 } catch (e: IOException) {
                     Log.e("BROADCAST", "Failed to obtain broadcast address")

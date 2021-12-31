@@ -1,22 +1,27 @@
 package nz.scuttlebutt.tremola.ssb.peering.discovery;
 
+import android.util.Log;
+
+import java.util.Objects;
+
 public class ReceivedQuery {
     private String shortName;
-    private String initID;
+    private String initId;
     private int hopCount;
-    private int queryID;
+    private int queryId;
     private long arrivalDate;
 
-    public ReceivedQuery(String shortName, String initiatorID, int hopCount, int queryID) {
+    public ReceivedQuery(String shortName, String initiatorId, int hopCount, int queryId) {
         this.shortName = shortName;
-        this.initID = initiatorID;
+        this.initId = initiatorId;
         this.hopCount = hopCount;
-        this.queryID = queryID;
+        this.queryId = queryId;
         arrivalDate = System.currentTimeMillis();
     }
 
-    public boolean isEqualTo(String initiatorID, int queryID) {
-        return initID == initiatorID && this.queryID == queryID;
+    public boolean isEqualTo(String initiatorId, int queryId) {
+        Log.e("QUERY", String.valueOf(Objects.equals(initId, initiatorId) && this.queryId == queryId));
+        return Objects.equals(initId, initiatorId) && this.queryId == queryId;
     }
 
     /**

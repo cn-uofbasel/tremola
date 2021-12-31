@@ -50,7 +50,7 @@ public class LookUpUDP extends LookUpClient {
 
 
     public void listen(ReentrantLock lock) throws InterruptedException {
-        byte[] buf = new byte[256];
+        byte[] buf = new byte[512];
         DatagramPacket ingram = new DatagramPacket(buf, buf.length);
         while (true) {
             try {
@@ -64,10 +64,10 @@ public class LookUpUDP extends LookUpClient {
             String incoming = new String(ingram.getData(), 0, ingram.getLength());
             for (String i : incoming.split(";")) {
                 Log.d("lu_rx " + ingram.getLength(), "<" + i + ">");
-                if (i.startsWith("{\"target")) {
+                if (i.startsWith("{\"targetName")) {
                     lookUp.acceptQuery(i);
                     lookUp.processQuery();
-                } else if (i.startsWith("{\"initiatorId")) {
+                } else if (i.startsWith("{\"targetId")) {
                     lookUp.acceptReply(i);
                     lookUp.processReply();
                 }
