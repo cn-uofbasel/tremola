@@ -38,7 +38,7 @@ public class LookUpUDP extends LookUpClient {
                     port
             );
 
-//            Log.d("Send Packet", new String(datagramPacket.getData()));
+            Log.d("Send Packet", new String(datagramPacket.getData()));
 
             datagramSocket.send(datagramPacket);
             datagramSocket.close();
@@ -63,7 +63,7 @@ public class LookUpUDP extends LookUpClient {
             }
             String incoming = new String(ingram.getData(), 0, ingram.getLength());
             for (String i : incoming.split(";")) {
-                Log.d("lu_rx " + ingram.getLength(), "<" + i + ">");
+                Log.e("lu_rx " + ingram.getLength(), "<" + i + ">");
                 if (i.startsWith("{\"targetName")) {
                     lookUp.acceptQuery(i);
                     lookUp.processQuery();

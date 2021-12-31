@@ -608,7 +608,7 @@ function b2f_local_peer(p, status) { // wireless peer: online, offline, connecte
 }
 
 function b2f_new_contact_lookup(target_short_name, new_contact_id) {
-    console.log("new contact lookup", target_short_name, new_contact_id);
+    console.log(`new contact lookup ${target_short_name}, ${new_contact_id}`);
     launch_snackbar(target_short_name, " : ", id2b32(new_contact_id));
 
     tremola.contacts[new_contact_id] = {
@@ -624,7 +624,6 @@ function b2f_new_contact_lookup(target_short_name, new_contact_id) {
     };
     persist();
     menu_redraw();
-
 }
 
 function b2f_new_event(e) { // incoming SSB log event: we get map with three entries

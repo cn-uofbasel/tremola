@@ -5,16 +5,12 @@ import android.util.Log;
 import java.util.Objects;
 
 public class ReceivedQuery {
-    private String shortName;
     private String initId;
-    private int hopCount;
     private int queryId;
     private long arrivalDate;
 
-    public ReceivedQuery(String shortName, String initiatorId, int hopCount, int queryId) {
-        this.shortName = shortName;
+    public ReceivedQuery(String initiatorId, int queryId) {
         this.initId = initiatorId;
-        this.hopCount = hopCount;
         this.queryId = queryId;
         arrivalDate = System.currentTimeMillis();
     }

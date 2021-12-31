@@ -40,7 +40,6 @@ class MainActivity : Activity() {
         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
         .build()
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
-    private var t3: LookUp? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -151,7 +150,7 @@ class MainActivity : Activity() {
         t1.priority = 10
 
         t2.priority = 6
-        t3.priority = 6
+        t3.priority = 5
 
         Log.d("Thread priorities", "${t0.priority} ${t1.priority} ${t2.priority} ${t3.priority}")
     }

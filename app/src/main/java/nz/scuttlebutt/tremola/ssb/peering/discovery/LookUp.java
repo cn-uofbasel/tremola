@@ -7,7 +7,6 @@ import android.os.Build;
 import android.util.Log;
 import nz.scuttlebutt.tremola.ssb.TremolaState;
 import nz.scuttlebutt.tremola.ssb.core.Crypto;
-import nz.scuttlebutt.tremola.ssb.core.SSBid;
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact;
 import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry;
 import org.jetbrains.annotations.NotNull;
@@ -33,7 +32,6 @@ public class LookUp extends Thread {
     private final String localAddress;
     private int port;
     private nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
-    private final int HOP_COUNT = 4;
     private static int queryIdentifier = 0;
     private final TremolaState tremolaState;
     private String incomingRequest = null;
@@ -42,7 +40,6 @@ public class LookUp extends Thread {
     private LookUpBluetooth lookUpBluetooth;
     private String udpBroadcastAddress;
     private String targetName;
-    private final String B32ENC_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     private String incomingAnswer;
 
 
@@ -123,6 +120,7 @@ public class LookUp extends Thread {
      */
     private String createMessage(String targetName) {
         String selfMultiServerAddress = "net:" + localAddress + ":" + port + "~shs:" + ed25519KeyPair.toRef();
+        int HOP_COUNT = 4;
         return createMessage(targetName, selfMultiServerAddress, queryIdentifier++, HOP_COUNT, null);
     }
 
@@ -159,7 +157,7 @@ public class LookUp extends Thread {
      * Process an incoming request by discarding, answering or forwarding it.
      */
     public void processQuery() {
-        Log.e("INPUT", incomingRequest);
+        Log.d("INPUT", incomingRequest);
         if (logOfReceivedQueries == null)
             logOfReceivedQueries = new LinkedList<>();
         try {
@@ -170,17 +168,15 @@ public class LookUp extends Thread {
             int queryId = data.getInt("queryId");
             String[] multiServerAddress = msa.split("~");
             String initId = multiServerAddress[1].split(":")[1];
-            Log.e("INPUT2", incomingRequest);
             for (Object object : logOfReceivedQueries.toArray()) {
                 ReceivedQuery query = (ReceivedQuery) object;
                 if (query.isOutDated()) {
                     logOfReceivedQueries.remove(query);
                 } else if (query.isEqualTo(initId, queryId)) {
-                    Log.e("QUERY", "Already in db");
+                    Log.d("QUERY", "Already in db");
                     return; // the query is already in the database
                 }
             }
-            Log.e("INPUT3", incomingRequest);
 
             String shortName = data.getString("targetName");
             int hopCount = data.getInt("hop");
@@ -191,23 +187,15 @@ public class LookUp extends Thread {
                 message.put("targetName", shortName);
                 message.put("msa", msa);
                 message.put("queryId", queryId);
-                String verifyKey = initId.substring(1, initId.length() - 8);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    signature = Base64.getDecoder().decode(sig);
-                    byte[] verify = Base64.getDecoder().decode(verifyKey);
-                    if (!Crypto.verifySignDetached(signature,
-                            message.toString().getBytes(StandardCharsets.UTF_8),
-                            verify)) {
-                        Log.e("VERIFY", "verify failure");
-                        return;
-                    }
+                if (signatureIsWrong(initId, message, sig)) {
+                    Log.e("VERIFY", "Verification failed");
+                    return;
                 }
-                Log.d("VERIFY", "Verified successfully!!!");
             } catch (Exception e) {
                 Log.e("VERIFY", msa);
             }
             logOfReceivedQueries.add(
-                    new ReceivedQuery(shortName, initId, hopCount, queryId));
+                    new ReceivedQuery(initId, queryId));
 
             String targetPublicKey = searchDataBase(shortName);
             if (targetPublicKey != null) {
@@ -216,7 +204,6 @@ public class LookUp extends Thread {
                 if (hopCount-- > 0) {
                     String msg = createMessage(shortName, msa, queryId, hopCount, signature);
                     if (lookUpUDP != null) {
-                        Log.e("OUTPUT", msg);
                         lookUpUDP.sendQuery(msg);
                     }
                     if (lookUpBluetooth != null) {
@@ -226,8 +213,8 @@ public class LookUp extends Thread {
                 }
             }
         } catch (Exception e) {
-            Log.e("PROCESS_QUERY", "Problem in process");
-            e.printStackTrace();
+            Log.e("PROCESS_QUERY", "Problem in process:");
+
         }
     }
 
@@ -243,7 +230,6 @@ public class LookUp extends Thread {
             int hopCount = data.getInt("hop");
             String sig = data.getString("signature");
             JSONObject message = new JSONObject();
-            byte[] signature;
             try {
                 message.put("targetId", targetId);
                 message.put("targetName", targetShortName);
@@ -251,34 +237,29 @@ public class LookUp extends Thread {
                 message.put("queryId", queryId);
                 message.put("friendId", friendId);
                 message.put("hop", hopCount);
-                String verifyKey = friendId.substring(1, friendId.length() - 8);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    signature = Base64.getDecoder().decode(sig);
-                    byte[] verify = Base64.getDecoder().decode(verifyKey); if (!Crypto.verifySignDetached(signature,
-                            message.toString().getBytes(StandardCharsets.UTF_8),
-                            verify)) {
-                        Log.e("VERIFY", "verify failure");
-                         return;
-                    }
+                if (signatureIsWrong(friendId, message, sig)) {
+                    Log.e("VERIFY", "Verification failed");
+                    return;
                 }
-                Log.d("VERIFY", "Verified successfully!!!");
             } catch (Exception e) {
-                Log.e("VERIFY", friendId);
+                Log.e("VERIFY", "failed : " + friendId);
             }
             if (!initId.equals(ed25519KeyPair.toRef())) {
-                Log.e("VERIFY", initId + " : " + ed25519KeyPair.toRef());
+                Log.e("VERIFY", initId + " : I am not the initiator of this request");
                 return; // I am not the initiator of this request
+            } else if (!targetId.matches("^@[a-zA-Z0-9+/]{43}=.ed25519$")) {
+                Log.e("VERIFY", targetId + " : public key is not valid");
+                return; // public key is not valid
             }
 
-            Log.e("PROCESS_REPLY", "LOOKUP accepted!!!");
             String targetPublicKey = searchDataBase(targetShortName);
             if (targetPublicKey != null) {
+                Log.e("OLD CONTACT", targetShortName + " already exists in databas : " + targetPublicKey);
                 // TODO Contact already exists in database; I have to choose what I want
 //                return;
             }
             addNewContact(targetId, targetShortName);
 
-            Log.e("PROCESS_REPLY", "I DID IT!!!");
         } catch (Exception e) {
             Log.e("PROCESS_REPLY", "Problem in process");
             e.printStackTrace();
@@ -289,14 +270,14 @@ public class LookUp extends Thread {
         tremolaState.addContact(targetId, null);
 
         String rawStr = tremolaState.getMsgTypes().mkFollow(targetId, false);
-        LogEntry evnt = tremolaState.getMsgTypes().jsonToLogEntry(rawStr,
+        LogEntry event = tremolaState.getMsgTypes().jsonToLogEntry(rawStr,
                 rawStr.getBytes(StandardCharsets.UTF_8));
 
-        tremolaState.wai.rx_event(evnt);
+        assert event != null;
+        tremolaState.wai.rx_event(event);
         tremolaState.getPeers().newContact(targetId); // inform online peers via EBT
         String eval = "b2f_new_contact_lookup('" + targetShortName + "','" + targetId + "')";
         tremolaState.wai.eval(eval);
-        Log.e("EVAL", eval);
     }
 
     /**
@@ -307,12 +288,10 @@ public class LookUp extends Thread {
      */
     private String searchDataBase(String targetShortName) {
         if (keyIsTarget(targetShortName, ed25519KeyPair.toRef())) {
-            return ed25519KeyPair.toExportString();
+            return ed25519KeyPair.toRef();
         } else {
             for (Contact contact : tremolaState.getContactDAO().getAll()) {
                 if (keyIsTarget(targetShortName, contact.getLid())) {
-                    String alias = contact.getAlias();
-                    Log.d("CONTACT", (alias == null ? "no alias" : alias));
                     return contact.getLid();
                 }
             }
@@ -321,24 +300,38 @@ public class LookUp extends Thread {
     }
 
     /**
+     * Verify the authenticity of a message with its signature and author's key.
+     * @param initId    the author's public key
+     * @param message   the message to be verified
+     * @param sig       the signature
+     * @return          true if the signature is correct
+     */
+    private boolean signatureIsWrong(String initId, JSONObject message, String sig) {
+        String verifyKey = initId.substring(1, initId.length() - 8);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            byte[] signature = Base64.getDecoder().decode(sig);
+            byte[] verify = Base64.getDecoder().decode(verifyKey);
+            return !Crypto.verifySignDetached(signature,
+                    message.toString().getBytes(StandardCharsets.UTF_8),
+                    verify);
+        }
+        return true;
+    }
+
+    /**
      * Send a query that comes from front end.
      * Must be done for each available medium.
      */
     public void sendQuery() {
         String broadcastMessage = createMessage(targetName);
-        Log.d("SIGNING", broadcastMessage);
         if (lookUpUDP != null) {
             lookUpUDP.prepareQuery(udpBroadcastAddress);
             lookUpUDP.sendQuery(broadcastMessage);
         }
-//        if (lookUpBluetooth != null) {
-//            lookUpBluetooth.scanLeDevice();
-//            lookUpBluetooth.sendQuery(broadcastMessage);
-//        }
     }
 
-    private void replyStep2(String initId, int queryId, String targetShortName, int hopCount, String targetId, String initAddress) {
-        // TODO check
+    private void replyStep2(String initId, int queryId, String targetShortName, int hopCount,
+                            String targetId, String initAddress) {
         JSONObject reply = new JSONObject();
         try {
             reply.put("targetId", targetId);
@@ -368,7 +361,7 @@ public class LookUp extends Thread {
                     Integer.parseInt(address[2])
             );
 
-            Log.d("Reply Address", receiverAddress.toString());
+            Log.d("Reply sent", new String(datagramPacket.getData()));
 
             datagramSocket.send(datagramPacket);
         } catch (IOException e) {
@@ -424,7 +417,7 @@ public class LookUp extends Thread {
             buf = Arrays.copyOfRange(buf, 5, buf.length);
         }
         if (cnt != 0) {
-            cnt = (int) Math.floor(8 * (5 - cnt) / 5);
+            cnt = (int) Math.floor((double) 8 * (5 - cnt) / 5);
             b32 = new StringBuilder(b32.substring(0, b32.length() - cnt) + "======".substring(0, cnt));
         }
         return b32.toString();
@@ -436,8 +429,9 @@ public class LookUp extends Thread {
         for (int i = 0; i < 5; i++)
             number = number * 256 + b40[i];
 
+        String b32ENC_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
         for (int i = 0; i < 8; i++, number /= 32)
-            s.insert(0, B32ENC_MAP.charAt((int) number & 0x1f));
+            s.insert(0, b32ENC_MAP.charAt((int) number & 0x1f));
 
         return s.toString();
     }
