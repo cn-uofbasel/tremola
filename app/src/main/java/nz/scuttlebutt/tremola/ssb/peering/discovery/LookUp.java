@@ -5,6 +5,8 @@ import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.os.Build;
 import android.util.Log;
+import android.widget.Toast;
+import nz.scuttlebutt.tremola.MainActivity;
 import nz.scuttlebutt.tremola.ssb.TremolaState;
 import nz.scuttlebutt.tremola.ssb.core.Crypto;
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact;
@@ -18,10 +20,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.LinkedList;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static nz.scuttlebutt.tremola.ssb.core.Crypto.signDetached;
@@ -41,6 +40,7 @@ public class LookUp extends Thread {
     private String udpBroadcastAddress;
     private String targetName;
     private String incomingAnswer;
+    private final Map<String, Boolean> notification = new HashMap<>();
 
 
     public LookUp(String localAddress, Context context, TremolaState tremolaState) {
@@ -65,16 +65,54 @@ public class LookUp extends Thread {
         }
     }
 
+    private void notify(String targetName, String text) {
+        if (Boolean.FALSE.equals(notification.remove(targetName))) {
+            ((MainActivity) context).runOnUiThread(
+                    () -> Toast.makeText(context, text, Toast.LENGTH_LONG).show());
+            notification.put(targetName, true);
+        }
+    }
+
     /**
      * Store the needed information before launching the Thread.
-     *
-     * @param broadcastAddress the udp address to broadcast the query
-     * @param targetName       the target name written by the user
+     * Starts a timer to notify the user if no valid reply is received.
+     * Handles the notifications if the contact is known.
+     * @param broadcastAddress  the udp address to broadcast the query
+     * @param targetName        the target name written by the user
+     * @return                  true if the contact is not known
      */
     public boolean prepareQuery(String broadcastAddress, String targetName) {
         this.udpBroadcastAddress = broadcastAddress;
         this.targetName = targetName;
-        return searchDataBase(targetName) == null;
+        notification.put(targetName, false);
+
+        Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                String text = "No result found for \"" + targetName + "\"";
+                LookUp.this.notify(targetName, text);
+            }
+        }, 3000L);
+        String databaseSearch = searchDataBase(targetName);
+        if (databaseSearch != null) {
+            Log.e("NOTIFY", databaseSearch);
+            if (databaseSearch.equals(ed25519KeyPair.toRef())) {
+                notify(targetName, "Shortname \"" + targetName + "\" is your own shortname.");
+                return false;
+            }
+            String alias;
+            try {
+                alias = Objects.requireNonNull(tremolaState.getContactDAO().getContactByLid(databaseSearch)).getAlias();
+                alias = Objects.equals(alias, "null") ? targetName : alias;
+            } catch (Exception e) {
+                alias = targetName;
+            }
+            notify(targetName, "Shortname \"" + targetName
+                    + "\" is in your contacts as " + alias + ".");
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -163,8 +201,9 @@ public class LookUp extends Thread {
         try {
             JSONObject data = new JSONObject(incomingRequest);
             String msa = data.get("msa").toString();
-            if (msa.endsWith(Objects.requireNonNull(ed25519KeyPair.toRef())))
+            if (msa.endsWith(Objects.requireNonNull(ed25519KeyPair.toRef()))) {
                 return; // I'm the initiator
+            }
             int queryId = data.getInt("queryId");
             String[] multiServerAddress = msa.split("~");
             String initId = multiServerAddress[1].split(":")[1];
@@ -254,11 +293,12 @@ public class LookUp extends Thread {
 
             String targetPublicKey = searchDataBase(targetShortName);
             if (targetPublicKey != null) {
-                Log.e("OLD CONTACT", targetShortName + " already exists in databas : " + targetPublicKey);
+                Log.e("OLD CONTACT", targetShortName + " already exists in database : " + targetPublicKey);
                 // TODO Contact already exists in database; I have to choose what I want
 //                return;
             }
             addNewContact(targetId, targetShortName);
+            notify(targetShortName, "\"" + targetShortName + "\" added to your contacts.");
 
         } catch (Exception e) {
             Log.e("PROCESS_REPLY", "Problem in process");
@@ -301,10 +341,11 @@ public class LookUp extends Thread {
 
     /**
      * Verify the authenticity of a message with its signature and author's key.
-     * @param initId    the author's public key
-     * @param message   the message to be verified
-     * @param sig       the signature
-     * @return          true if the signature is correct
+     *
+     * @param initId  the author's public key
+     * @param message the message to be verified
+     * @param sig     the signature
+     * @return true if the signature is correct
      */
     private boolean signatureIsWrong(String initId, JSONObject message, String sig) {
         String verifyKey = initId.substring(1, initId.length() - 8);
