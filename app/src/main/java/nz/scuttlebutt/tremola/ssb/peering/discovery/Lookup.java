@@ -25,51 +25,52 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static nz.scuttlebutt.tremola.ssb.core.Crypto.signDetached;
 
-public class LookUp extends Thread {
+public class Lookup {
 
     private final Context context;
+    private final TremolaState tremolaState;
+    private nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
+    private LinkedList<LookupClient> lookupClients;
+
     private final String localAddress;
     private int port;
-    private nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
     private static int queryIdentifier = 0;
-    private final TremolaState tremolaState;
-    private String incomingRequest = null;
     private LinkedList<ReceivedQuery> logOfReceivedQueries;
-    private LookUpUDP lookUpUDP;
-    private LookUpBluetooth lookUpBluetooth;
-    private String udpBroadcastAddress;
+    private final String udpBroadcastAddress;
     private String targetName;
-    private String incomingAnswer;
     private final Map<String, Boolean> notification = new HashMap<>();
 
 
-    public LookUp(String localAddress, Context context, TremolaState tremolaState) {
+    public Lookup(String localAddress, Context context, TremolaState tremolaState, String udpBroadcastAddress) {
         this.tremolaState = tremolaState;
         this.context = context;
         this.localAddress = localAddress;
+        this.udpBroadcastAddress = udpBroadcastAddress;
     }
 
-    public void listen(int port, ReentrantLock lock) throws InterruptedException {
+    public void listen(int port, ReentrantLock lock) {
         this.port = port;
         this.ed25519KeyPair = tremolaState.getIdStore().getIdentity();
+        lookupClients = new LinkedList<>();
 
-        lookUpUDP = new LookUpUDP(this, context, port, ed25519KeyPair);
-        lookUpUDP.listen(lock);
+        LookupUDP lookupUDP = new LookupUDP(this, context, ed25519KeyPair, lock, port, udpBroadcastAddress);
+        lookupClients.add(lookupUDP);
 
         BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
         BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
             Log.w("BLUETOOTH", "Bluetooth disabled");
         } else {
-            lookUpBluetooth = new LookUpBluetooth(this, context, port, ed25519KeyPair, bluetoothAdapter);
+            LookupBluetooth lookupBluetooth = new LookupBluetooth(this, context, ed25519KeyPair, bluetoothAdapter, lock);
+            lookupClients.add(lookupBluetooth);
         }
-    }
 
-    private void notify(String targetName, String text) {
-        if (Boolean.FALSE.equals(notification.remove(targetName))) {
-            ((MainActivity) context).runOnUiThread(
-                    () -> Toast.makeText(context, text, Toast.LENGTH_LONG).show());
-            notification.put(targetName, true);
+        for (LookupClient client : lookupClients) {
+            try {
+                client.start();
+            } catch (Exception e) {
+                lookupClients.remove(client);
+            }
         }
     }
 
@@ -77,12 +78,11 @@ public class LookUp extends Thread {
      * Store the needed information before launching the Thread.
      * Starts a timer to notify the user if no valid reply is received.
      * Handles the notifications if the contact is known.
-     * @param broadcastAddress  the udp address to broadcast the query
-     * @param targetName        the target name written by the user
-     * @return                  true if the contact is not known
+     *
+     * @param targetName       the target name written by the user
+     * @return true if the contact is not known
      */
-    public boolean prepareQuery(String broadcastAddress, String targetName) {
-        this.udpBroadcastAddress = broadcastAddress;
+    public boolean prepareQuery(String targetName) {
         this.targetName = targetName;
         notification.put(targetName, false);
 
@@ -91,14 +91,14 @@ public class LookUp extends Thread {
             @Override
             public void run() {
                 String text = "No result found for \"" + targetName + "\"";
-                LookUp.this.notify(targetName, text);
+                Lookup.this.notify(targetName, text, false);
             }
         }, 3000L);
         String databaseSearch = searchDataBase(targetName);
         if (databaseSearch != null) {
             Log.e("NOTIFY", databaseSearch);
             if (databaseSearch.equals(ed25519KeyPair.toRef())) {
-                notify(targetName, "Shortname \"" + targetName + "\" is your own shortname.");
+                notify(targetName, "Shortname \"" + targetName + "\" is your own shortname.", false);
                 return false;
             }
             String alias;
@@ -109,92 +109,16 @@ public class LookUp extends Thread {
                 alias = targetName;
             }
             notify(targetName, "Shortname \"" + targetName
-                    + "\" is in your contacts as " + alias + ".");
+                    + "\" is in your contacts as " + alias + ".", false);
             return false;
         }
         return true;
     }
 
     /**
-     * Store a request received by any mean (for now udp or bluetooth)
-     *
-     * @param incomingRequest the received query
-     */
-    public void acceptQuery(@NotNull String incomingRequest) {
-        this.incomingRequest = incomingRequest;
-    }
-
-    /**
-     * Store the value received from the second step (to close a query).
-     *
-     * @param incomingAnswer a public key as answer
-     */
-    public void acceptReply(@NotNull String incomingAnswer) {
-        this.incomingAnswer = incomingAnswer;
-    }
-
-    /**
-     * Implemented as a thread not to block udp.listen().
-     * IncomingRequest is null if the query was received  from the front-end
-     */
-    public void run() {
-        if (incomingAnswer != null) {
-            processReply();
-            incomingAnswer = null;
-        } else if (incomingRequest != null) {
-            processQuery();
-            incomingRequest = null;
-        } else {
-            sendQuery();
-        }
-        this.interrupt();
-    }
-
-    /**
-     * Create the payload of the query.
-     *
-     * @param targetName the queried shortName
-     * @return the payload
-     */
-    private String createMessage(String targetName) {
-        String selfMultiServerAddress = "net:" + localAddress + ":" + port + "~shs:" + ed25519KeyPair.toRef();
-        int HOP_COUNT = 4;
-        return createMessage(targetName, selfMultiServerAddress, queryIdentifier++, HOP_COUNT, null);
-    }
-
-    /**
-     * Create a message to broadcast
-     *
-     * @param targetName         the name of the target
-     * @param multiServerAddress the address of the query initiator
-     * @param queryId            an id to identify the query
-     * @param hopCount           the decrementing number of hop as a time-to-live
-     * @return the message ready to send
-     */
-    private String createMessage(String targetName, String multiServerAddress, int queryId, int hopCount, byte[] signature) {
-        JSONObject message = new JSONObject();
-        try {
-            message.put("targetName", targetName);
-            message.put("msa", multiServerAddress);
-            message.put("queryId", queryId);
-            if (signature == null) {
-                signature = signDetached(message.toString().getBytes(StandardCharsets.UTF_8),
-                        Objects.requireNonNull(ed25519KeyPair.getSigningKey()));
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                message.put("signature", Base64.getEncoder().encodeToString(signature));
-            }
-            message.put("hop", hopCount);
-        } catch (JSONException e) {
-            Log.e("LOOKUP_JSON", e.getMessage());
-        }
-        return message.toString();
-    }
-
-    /**
      * Process an incoming request by discarding, answering or forwarding it.
      */
-    public void processQuery() {
+    public void processQuery(@NotNull String incomingRequest) {
         Log.d("INPUT", incomingRequest);
         if (logOfReceivedQueries == null)
             logOfReceivedQueries = new LinkedList<>();
@@ -242,22 +166,22 @@ public class LookUp extends Thread {
             } else {
                 if (hopCount-- > 0) {
                     String msg = createMessage(shortName, msa, queryId, hopCount, signature);
-                    if (lookUpUDP != null) {
-                        lookUpUDP.sendQuery(msg);
-                    }
-                    if (lookUpBluetooth != null) {
-                        // TODO sendQuery()
-                        lookUpBluetooth.scanLeDevice();
+                    for (LookupClient client : lookupClients) {
+                        try {
+                            if (client != null)
+                                client.sendQuery(msg);
+                        } catch (Exception e) {
+                            lookupClients.remove(client);
+                        }
                     }
                 }
             }
         } catch (Exception e) {
             Log.e("PROCESS_QUERY", "Problem in process:");
-
         }
     }
 
-    public void processReply() {
+    public void processReply(@NotNull String incomingAnswer) {
         Log.d("REPLY", incomingAnswer);
         try {
             JSONObject data = new JSONObject(incomingAnswer);
@@ -298,12 +222,87 @@ public class LookUp extends Thread {
 //                return;
             }
             addNewContact(targetId, targetShortName);
-            notify(targetShortName, "\"" + targetShortName + "\" added to your contacts.");
+            notify(targetShortName, "\"" + targetShortName + "\" added to your contacts.", true);
 
         } catch (Exception e) {
             Log.e("PROCESS_REPLY", "Problem in process");
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Send a query that comes from front end.
+     * Must be done for each available medium.
+     */
+    public void sendQuery() {
+        String broadcastMessage = createMessage(targetName);
+        for (LookupClient client : lookupClients) {
+            try {
+                client.sendQuery(broadcastMessage);
+            } catch (Exception e) {
+                lookupClients.remove(client);
+            }
+        }
+    }
+
+    /**
+     * Notify the user of the result of the query.
+     * Make sure that each query produces only one reply, except if
+     * a positive reply comes in after the timer.
+     *
+     * @param targetName the name for the query, as id not to notify the
+     *                   user more than once
+     * @param text       the text to display
+     * @param force      true if a contact was added, to make sure
+     *                   the user is notified
+     */
+    private void notify(String targetName, String text, boolean force) {
+        if (force || Boolean.FALSE.equals(notification.remove(targetName))) {
+            ((MainActivity) context).runOnUiThread(
+                    () -> Toast.makeText(context, text, Toast.LENGTH_LONG).show());
+            notification.put(targetName, true);
+        }
+    }
+
+    /**
+     * Create the payload of the query.
+     *
+     * @param targetName the queried shortName
+     * @return the payload
+     */
+    private String createMessage(String targetName) {
+        String selfMultiServerAddress = "net:" + localAddress + ":" + port + "~shs:" + ed25519KeyPair.toRef();
+        int HOP_COUNT = 4;
+        return createMessage(targetName, selfMultiServerAddress, queryIdentifier++, HOP_COUNT, null);
+    }
+
+    /**
+     * Create a message to broadcast
+     *
+     * @param targetName         the name of the target
+     * @param multiServerAddress the address of the query initiator
+     * @param queryId            an id to identify the query
+     * @param hopCount           the decrementing number of hop as a time-to-live
+     * @return the message ready to send
+     */
+    private String createMessage(String targetName, String multiServerAddress, int queryId, int hopCount, byte[] signature) {
+        JSONObject message = new JSONObject();
+        try {
+            message.put("targetName", targetName);
+            message.put("msa", multiServerAddress);
+            message.put("queryId", queryId);
+            if (signature == null) {
+                signature = signDetached(message.toString().getBytes(StandardCharsets.UTF_8),
+                        Objects.requireNonNull(ed25519KeyPair.getSigningKey()));
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                message.put("signature", Base64.getEncoder().encodeToString(signature));
+            }
+            message.put("hop", hopCount);
+        } catch (JSONException e) {
+            Log.e("LOOKUP_JSON", e.getMessage());
+        }
+        return message.toString();
     }
 
     private void addNewContact(String targetId, String targetShortName) {
@@ -357,18 +356,6 @@ public class LookUp extends Thread {
                     verify);
         }
         return true;
-    }
-
-    /**
-     * Send a query that comes from front end.
-     * Must be done for each available medium.
-     */
-    public void sendQuery() {
-        String broadcastMessage = createMessage(targetName);
-        if (lookUpUDP != null) {
-            lookUpUDP.prepareQuery(udpBroadcastAddress);
-            lookUpUDP.sendQuery(broadcastMessage);
-        }
     }
 
     private void replyStep2(String initId, int queryId, String targetShortName, int hopCount,

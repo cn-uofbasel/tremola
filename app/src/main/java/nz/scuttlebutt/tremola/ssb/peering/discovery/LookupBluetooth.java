@@ -11,9 +11,10 @@ import nz.scuttlebutt.tremola.ssb.core.SSBid;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.locks.ReentrantLock;
 
 
-public class LookUpBluetooth extends LookUpClient {
+public class LookupBluetooth extends LookupClient {
 
 
     private final BluetoothLeScanner bluetoothLeScanner;
@@ -23,8 +24,9 @@ public class LookUpBluetooth extends LookUpClient {
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000L;
 
-    public LookUpBluetooth(LookUp lookUp, Context context, int port, SSBid ed25519KeyPair, BluetoothAdapter bluetoothAdapter) {
-        super(lookUp, context, port, ed25519KeyPair);
+    public LookupBluetooth(Lookup lookup, Context context, SSBid ed25519KeyPair,
+                           BluetoothAdapter bluetoothAdapter, ReentrantLock lock) {
+        super(lookup, context, ed25519KeyPair, lock);
         bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
     }
 

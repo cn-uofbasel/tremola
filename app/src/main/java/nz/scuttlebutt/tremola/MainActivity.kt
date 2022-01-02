@@ -18,8 +18,9 @@ import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.peering.RpcResponder
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
 import nz.scuttlebutt.tremola.ssb.peering.UDPbroadcast
-import nz.scuttlebutt.tremola.ssb.peering.discovery.LookUp
+import nz.scuttlebutt.tremola.ssb.peering.discovery.Lookup
 import nz.scuttlebutt.tremola.utils.Constants
+import nz.scuttlebutt.tremola.utils.getBroadcastAddress
 import nz.scuttlebutt.tremola.utils.getLocalIpAddress
 import java.lang.Thread.sleep
 import java.net.DatagramSocket
@@ -35,7 +36,7 @@ class MainActivity : Activity() {
     var lookup_socket: DatagramSocket? = null
     var server_socket: ServerSocket? = null
     var udp: UDPbroadcast? = null
-    var lookup: LookUp? = null
+    var lookup: Lookup? = null
     val networkRequest = NetworkRequest.Builder()
         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
         .build()
@@ -99,7 +100,12 @@ class MainActivity : Activity() {
             }
         }
         udp = UDPbroadcast(this, tremolaState.wai)
-        lookup = LookUp(getLocalIpAddress(this),this, tremolaState)
+        lookup = Lookup(
+            getLocalIpAddress(this),
+            this,
+            tremolaState,
+            getBroadcastAddress(this).hostAddress
+        )
         val lck = ReentrantLock()
         val lookupLock = ReentrantLock()
 
@@ -150,7 +156,7 @@ class MainActivity : Activity() {
         t1.priority = 10
 
         t2.priority = 6
-        t3.priority = 5
+        t3.priority = 1
 
         Log.d("Thread priorities", "${t0.priority} ${t1.priority} ${t2.priority} ${t3.priority}")
     }

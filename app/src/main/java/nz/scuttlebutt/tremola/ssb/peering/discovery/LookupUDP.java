@@ -12,17 +12,17 @@ import java.net.*;
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class LookUpUDP extends LookUpClient {
+public class LookupUDP extends LookupClient {
 
-    private String broadcastAddress;
+    private final String broadcastAddress;
+    private final int port;
 
-    public LookUpUDP(LookUp lookUp, Context context, int port, SSBid ed25519KeyPair) {
-        super(lookUp, context, port, ed25519KeyPair);
-    }
-
-    public void prepareQuery(String broadcastAddress) {
+    public LookupUDP(Lookup lookup, Context context, SSBid ed25519KeyPair, ReentrantLock lock, int port, String broadcastAddress) {
+        super(lookup, context, ed25519KeyPair, lock);
+        this.port = port;
         this.broadcastAddress = broadcastAddress;
     }
+
 
     @Override
     public void sendQuery(String broadcastMessage) {
@@ -48,8 +48,8 @@ public class LookUpUDP extends LookUpClient {
         }
     }
 
-
-    public void listen(ReentrantLock lock) throws InterruptedException {
+    @Override
+    public void run() {
         byte[] buf = new byte[512];
         DatagramPacket ingram = new DatagramPacket(buf, buf.length);
         while (true) {
@@ -57,7 +57,11 @@ public class LookUpUDP extends LookUpClient {
                 Objects.requireNonNull(((MainActivity) context).getLookup_socket()).receive(ingram);
             } catch (Exception e) {
                 synchronized (lock) {
-                    lock.wait(Constants.Companion.getLOOKUP_INTERVAL());
+                    try {
+                        lock.wait(Constants.Companion.getLOOKUP_INTERVAL());
+                    } catch (InterruptedException ex) {
+                        Log.e("UDP LOCK", ex.getMessage());
+                    }
                 }
                 continue;
             }
@@ -65,11 +69,9 @@ public class LookUpUDP extends LookUpClient {
             for (String i : incoming.split(";")) {
                 Log.e("lu_rx " + ingram.getLength(), "<" + i + ">");
                 if (i.startsWith("{\"targetName")) {
-                    lookUp.acceptQuery(i);
-                    lookUp.processQuery();
+                    lookup.processQuery(i);
                 } else if (i.startsWith("{\"targetId")) {
-                    lookUp.acceptReply(i);
-                    lookUp.processReply();
+                    lookup.processReply(i);
                 }
             }
         }

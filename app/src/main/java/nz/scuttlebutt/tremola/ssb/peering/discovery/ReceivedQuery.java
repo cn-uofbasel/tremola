@@ -5,9 +5,9 @@ import android.util.Log;
 import java.util.Objects;
 
 public class ReceivedQuery {
-    private String initId;
-    private int queryId;
-    private long arrivalDate;
+    private final String initId;
+    private final int queryId;
+    private final long arrivalDate;
 
     public ReceivedQuery(String initiatorId, int queryId) {
         this.initId = initiatorId;

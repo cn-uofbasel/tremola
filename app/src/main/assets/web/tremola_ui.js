@@ -29,7 +29,7 @@ var scenarioMenu = {
                 ['About', 'menu_about']],
   'contacts' : [['New contact', 'menu_new_contact'],
                 ['Settings', 'menu_settings'],
-                ['Look up', 'menu_look_up'],
+                ['Lookup', 'menu_look_up'],
                 ['About', 'menu_about']],
   'connex'   : [['New SSB pub', 'menu_new_pub'],
                 ['Redeem invite code', 'menu_invite'],
