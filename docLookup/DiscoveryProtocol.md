@@ -58,13 +58,6 @@ be described in more details}
 
 
 ## Security concern
-### 2 steps discovery
-In order to mitigate spoofing, we have introduced a two-step introduction : first the targeted peer
-is discovered by a friend who sends this information directly back to the initiator, who in turn
-contacts the target directly. This feature can be used as an addition to the trust given by an 
-answer, because a third party (the Friend) is acknowledging that the Target is indeed a true user.
-Of course, it is of no warranty, but it helps to choose in case of different answers.
-
 
 ## Points to be taken into account:
 ### Multiple replies
@@ -76,20 +69,3 @@ criteria have to be described precisely, but we have several hints for that :
 
  -> My idea for that is to add it in the database if the signing is correct, and update it when a 
 new reply comes in, choosing the best of each.
-
-Furthermore, it is possible for the Initiator to start the handshake (step 3) with more than one 
-user. The reply (step 4) can help to make this decision, considering for example its existence, its
-timing, etc. The Initiator can then abort the peering by not closing the handshake (step 5).
-    
-
-_____
-To include :
-- an opcode to describe the message's goal
-- Does a dormant entry need to be discarded / not trusted anymore, i.e. does the entries have a 
-  time-to-live?
-  
-To do:
-- fix signature
-- fix thread dying
-- add lookup query in the contact database
-- add a GUI response to a successful lookup

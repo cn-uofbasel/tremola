@@ -23,7 +23,6 @@ public class LookupUDP extends LookupClient {
         this.broadcastAddress = broadcastAddress;
     }
 
-
     @Override
     public void sendQuery(String broadcastMessage) {
         try {
@@ -77,4 +76,3 @@ public class LookupUDP extends LookupClient {
         }
     }
 }
-

@@ -1,7 +1,5 @@
 package nz.scuttlebutt.tremola.ssb.peering.discovery;
 
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.os.Build;
 import android.util.Log;
@@ -29,7 +27,7 @@ public class Lookup {
 
     private final Context context;
     private final TremolaState tremolaState;
-    private nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
+    private final nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
     private LinkedList<LookupClient> lookupClients;
 
     private final String localAddress;
@@ -40,30 +38,28 @@ public class Lookup {
     private String targetName;
     private final Map<String, Boolean> notification = new HashMap<>();
 
-
     public Lookup(String localAddress, Context context, TremolaState tremolaState, String udpBroadcastAddress) {
         this.tremolaState = tremolaState;
         this.context = context;
         this.localAddress = localAddress;
         this.udpBroadcastAddress = udpBroadcastAddress;
+        this.ed25519KeyPair = tremolaState.getIdStore().getIdentity();
     }
 
+    /**
+     * Instantiate the lookupClients and start the listening loop.
+     * @param port  the UDP port used by this protocol
+     * @param lock  the lock to wait in case of an exception
+     */
     public void listen(int port, ReentrantLock lock) {
         this.port = port;
-        this.ed25519KeyPair = tremolaState.getIdStore().getIdentity();
         lookupClients = new LinkedList<>();
 
         LookupUDP lookupUDP = new LookupUDP(this, context, ed25519KeyPair, lock, port, udpBroadcastAddress);
         lookupClients.add(lookupUDP);
 
-        BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-        BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
-        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
-            Log.w("BLUETOOTH", "Bluetooth disabled");
-        } else {
-            LookupBluetooth lookupBluetooth = new LookupBluetooth(this, context, ed25519KeyPair, bluetoothAdapter, lock);
-            lookupClients.add(lookupBluetooth);
-        }
+        LookupBluetooth lookupBluetooth = new LookupBluetooth(this, context, ed25519KeyPair, lock);
+        lookupClients.add(lookupBluetooth);
 
         for (LookupClient client : lookupClients) {
             try {
@@ -75,11 +71,11 @@ public class Lookup {
     }
 
     /**
-     * Store the needed information before launching the Thread.
-     * Starts a timer to notify the user if no valid reply is received.
+     * Store the needed information and starts a timer to notify the user
+     * if no valid reply is received.
      * Handles the notifications if the contact is known.
      *
-     * @param targetName       the target name written by the user
+     * @param targetName the target name written by the user
      * @return true if the contact is not known
      */
     public boolean prepareQuery(String targetName) {
@@ -177,10 +173,14 @@ public class Lookup {
                 }
             }
         } catch (Exception e) {
-            Log.e("PROCESS_QUERY", "Problem in process:");
+            Log.e("PROCESS_QUERY", "Problem in process.");
         }
     }
 
+    /**
+     * Process a reply from an initiated query by discarding it or adding a new Contact.
+     * @param incomingAnswer the received answer
+     */
     public void processReply(@NotNull String incomingAnswer) {
         Log.d("REPLY", incomingAnswer);
         try {
@@ -218,8 +218,8 @@ public class Lookup {
             String targetPublicKey = searchDataBase(targetShortName);
             if (targetPublicKey != null) {
                 Log.e("OLD CONTACT", targetShortName + " already exists in database : " + targetPublicKey);
-                // TODO Contact already exists in database; I have to choose what I want
-//                return;
+                // Contact already exists in database
+                return;
             }
             addNewContact(targetId, targetShortName);
             notify(targetShortName, "\"" + targetShortName + "\" added to your contacts.", true);
@@ -305,6 +305,11 @@ public class Lookup {
         return message.toString();
     }
 
+    /**
+     * Add a new contact in database in case of a successful lookup.
+     * @param targetId          the public key of the Target
+     * @param targetShortName   the ShortName of the Target
+     */
     private void addNewContact(String targetId, String targetShortName) {
         tremolaState.addContact(targetId, null);
 
@@ -358,6 +363,15 @@ public class Lookup {
         return true;
     }
 
+    /**
+     * Send a reply to the Initiator in case of a successful lookup.
+     * @param initId            the Initiator's public key
+     * @param queryId           the query identity
+     * @param targetShortName   the Target's ShortName
+     * @param hopCount          the final hop count
+     * @param targetId          the Target's public key
+     * @param initAddress       the Initiator's Multi-server address, to reach him
+     */
     private void replyStep2(String initId, int queryId, String targetShortName, int hopCount,
                             String targetId, String initAddress) {
         JSONObject reply = new JSONObject();
@@ -409,8 +423,12 @@ public class Lookup {
         return receivedShortName.equals(computedShortName);
     }
 
+    /**
+     * Compute a ShortName from a public key
+     * @param str a public key
+     * @return    a ShortName
+     */
     private String id2b32(String str) {
-
         try {
             String b = str.substring(1, str.length() - 9);
             byte[] bytes = new byte[0];
@@ -426,6 +444,11 @@ public class Lookup {
         return "??";
     }
 
+    /**
+     * id2b32 helper function.
+     * @param bytes  array of bytes from the public key
+     * @return       a ShortName
+     */
     private String b32encode(byte[] bytes) {
         StringBuilder b32 = new StringBuilder();
         int cnt = bytes.length % 5;
@@ -451,6 +474,11 @@ public class Lookup {
         return b32.toString();
     }
 
+    /**
+     * Computing and mapping of bytes for id2b32.
+     * @param b40 a 5 integer array, part of the public key
+     * @return    part of the ShortName
+     */
     private String b32enc_do40bits(int[] b40) {
         long number = 0;
         StringBuilder s = new StringBuilder();

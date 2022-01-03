@@ -31,7 +31,7 @@ When (receive query) {
     if (query.target == myself) {
         sendsStep2(myself)
     } else {
-        result = contacts.lookUp(query.target)
+        result = contacts.lookup(query.target)
         if (isSuccessfull(result)) {
             sendsStep2(result.contactData)
         else {
