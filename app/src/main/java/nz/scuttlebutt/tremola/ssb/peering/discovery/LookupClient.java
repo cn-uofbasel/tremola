@@ -20,4 +20,6 @@ public abstract class LookupClient extends Thread {
     }
 
     abstract void sendQuery(String broadcastMessage);
+
+    void closeQuery(String message) {}
 }

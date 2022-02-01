@@ -143,8 +143,9 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                 try {
                     getBroadcastAddress(act).hostAddress
                     val lookup = (act as MainActivity).lookup
-                    if (lookup!!.prepareQuery(shortname))
-                        lookup.sendQuery()
+                    val send = lookup!!.prepareQuery(shortname);
+                    if (send != null)
+                        lookup.sendQuery(send)
                     else
                         Log.d("LOOKUP", "$shortname is already in contacts")
                 } catch (e: IOException) {

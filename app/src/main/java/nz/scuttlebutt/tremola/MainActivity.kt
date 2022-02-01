@@ -13,6 +13,7 @@ import android.util.Log
 import android.view.Window
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import com.google.zxing.integration.android.IntentIntegrator
 import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.peering.RpcResponder
@@ -188,6 +189,8 @@ class MainActivity : Activity() {
                 cmd = "qr_scan_success('" + result.contents + "');"
             }
             tremolaState.wai.eval(cmd)
+        } else {
+            Toast.makeText(this, "Activity result: " + requestCode, Toast.LENGTH_LONG).show()
         }
         super.onActivityResult(requestCode, resultCode, data)
     }

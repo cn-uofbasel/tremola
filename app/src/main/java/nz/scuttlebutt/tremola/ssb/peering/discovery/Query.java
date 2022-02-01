@@ -4,19 +4,20 @@ import android.util.Log;
 
 import java.util.Objects;
 
-public class ReceivedQuery {
+public class Query {
     private final String initId;
     private final int queryId;
     private final long arrivalDate;
+    private static final long TIME_TO_LIVE = 5000L;
 
-    public ReceivedQuery(String initiatorId, int queryId) {
+    public Query(String initiatorId, int queryId) {
         this.initId = initiatorId;
         this.queryId = queryId;
         arrivalDate = System.currentTimeMillis();
     }
 
     public boolean isEqualTo(String initiatorId, int queryId) {
-        Log.e("QUERY", String.valueOf(Objects.equals(initId, initiatorId) && this.queryId == queryId));
+//        Log.e("QUERY", String.valueOf(Objects.equals(initId, initiatorId) && this.queryId == queryId));
         return Objects.equals(initId, initiatorId) && this.queryId == queryId;
     }
 
@@ -25,7 +26,7 @@ public class ReceivedQuery {
      * @return true if this query is out dated
      */
     public boolean isOutDated() {
-        return System.currentTimeMillis() - arrivalDate > 60000L;
+        return System.currentTimeMillis() - arrivalDate > TIME_TO_LIVE;
     }
 
 }

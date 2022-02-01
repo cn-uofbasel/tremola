@@ -37,7 +37,7 @@ public class LookupUDP extends LookupClient {
                     port
             );
 
-            Log.d("Send Packet", new String(datagramPacket.getData()));
+            Log.e("Send Packet", new String(datagramPacket.getData()));
 
             datagramSocket.send(datagramPacket);
             datagramSocket.close();
@@ -67,9 +67,9 @@ public class LookupUDP extends LookupClient {
             String incoming = new String(ingram.getData(), 0, ingram.getLength());
             for (String i : incoming.split(";")) {
                 Log.e("lu_rx " + ingram.getLength(), "<" + i + ">");
-                if (i.startsWith("{\"targetName")) {
+                if (i.contains("\"msa\"")) {
                     lookup.processQuery(i);
-                } else if (i.startsWith("{\"targetId")) {
+                } else if (i.contains("\"targetId\"")) {
                     lookup.processReply(i);
                 }
             }

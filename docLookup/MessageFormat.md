@@ -2,7 +2,6 @@
 -- version 1.1 29.12.2021
 # TODO add signature
 
-
 This is a Description of the content of the messages for the discovery protocol
 
 ## General description
@@ -34,3 +33,20 @@ example :
 
 In addition, it contains the Target's Shortname, the Initiator's identity, the hop count and
 the query identifier from step one. It uses the Initiator's id to reach him.
+
+
+messages :
+
+{"targetName":"V7JO6-YYCOV",
+"msa":"net:192.168.1.108:8009~shs:@uVz5xiyGbzs92Av\/JmxtXS23e9Sqo5FiMgcwc+JvIb8=.ed25519",
+"queryId":1,
+"signature":"OoKMCfEhgUV\/SciaNbo\/Ey5Xofj+WbJzneyoJglnreQOmeFxstYLWssNEV6EMHKpJb4Qavlet6YJfTY82TqHBg==",
+"hop":4}>
+
+{"targetId":"@r9LvYwJ1QyyCU9rdD0vQqIK51EPauKb1so\/Nv\/yicEg=.ed25519",
+"targetName":"V7JO6-YYCOV",
+"initiatorId":"@uVz5xiyGbzs92Av\/JmxtXS23e9Sqo5FiMgcwc+JvIb8=.ed25519",
+"queryId":0,
+"friendId":"@r9LvYwJ1QyyCU9rdD0vQqIK51EPauKb1so\/Nv\/yicEg=.ed25519",
+"hop":4,
+"signature":"w2mH22V3SfWWhpBBxb+CBEYc4OpmkD70kh2FxvUiIg+ZvvOMdSkGzW3EPMIMsFKGVbf+TS3IWKKOa0nfpeuYCg=="}
