@@ -13,6 +13,7 @@ import android.util.Log
 import android.view.Window
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import com.google.zxing.integration.android.IntentIntegrator
 import android.widget.Toast
 import nz.scuttlebutt.tremola.ssb.TremolaState
@@ -112,7 +113,11 @@ class MainActivity : Activity() {
 
         val t0 = thread(isDaemon = true) {
             try {
-                udp!!.beacon(tremolaState.idStore.identity.verifyKey, lck, Constants.SSB_IPV4_TCPPORT)
+                udp!!.beacon(
+                    tremolaState.idStore.identity.verifyKey,
+                    lck,
+                    Constants.SSB_IPV4_TCPPORT
+                )
             } catch (e: Exception) {
                 Log.d("beacon thread", "died ${e}")
             }
@@ -138,8 +143,10 @@ class MainActivity : Activity() {
                     continue
                 }
                 thread() { // one thread per connection
-                    val rpcStream = RpcResponder(tremolaState, socket,
-                        Constants.SSB_NETWORKIDENTIFIER)
+                    val rpcStream = RpcResponder(
+                        tremolaState, socket,
+                        Constants.SSB_NETWORKIDENTIFIER
+                    )
                     rpcStream.defineServices(RpcServices(tremolaState))
                     rpcStream.startStreaming()
                 }

@@ -46,5 +46,18 @@ sendStep2(initiatorId, queryId, targetShortName, targetId, hopCount) {
     send(reply, to: initiator)
 }
 
+messages :
 
+{"targetName":"V7JO6-YYCOV",
+"msa":"net:192.168.1.108:8009~shs:@uVz5xiyGbzs92Av\/JmxtXS23e9Sqo5FiMgcwc+JvIb8=.ed25519",
+"queryId":1,
+"signature":"OoKMCfEhgUV\/SciaNbo\/Ey5Xofj+WbJzneyoJglnreQOmeFxstYLWssNEV6EMHKpJb4Qavlet6YJfTY82TqHBg==",
+"hop":4}>
 
+{"targetId":"@r9LvYwJ1QyyCU9rdD0vQqIK51EPauKb1so\/Nv\/yicEg=.ed25519",
+"targetName":"V7JO6-YYCOV",
+"initiatorId":"@uVz5xiyGbzs92Av\/JmxtXS23e9Sqo5FiMgcwc+JvIb8=.ed25519",
+"queryId":0,
+"friendId":"@r9LvYwJ1QyyCU9rdD0vQqIK51EPauKb1so\/Nv\/yicEg=.ed25519",
+"hop":4,
+"signature":"w2mH22V3SfWWhpBBxb+CBEYc4OpmkD70kh2FxvUiIg+ZvvOMdSkGzW3EPMIMsFKGVbf+TS3IWKKOa0nfpeuYCg=="}

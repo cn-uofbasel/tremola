@@ -48,7 +48,6 @@ public class LookupUDP extends LookupClient {
                     port
             );
 
-
             datagramSocket.send(datagramPacket);
             datagramSocket.close();
             Log.e("lu_wr", new String(datagramPacket.getData()));
