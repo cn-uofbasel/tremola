@@ -11,6 +11,7 @@ public abstract class LookupClient extends Thread {
     protected final Context context;
     protected final Lookup lookup;
     protected final ReentrantLock lock;
+    protected boolean active = false;
 
     public LookupClient(Lookup lookup, Context context, SSBid ed25519KeyPair, ReentrantLock lock) {
         this.ed25519KeyPair = ed25519KeyPair;
@@ -19,5 +20,30 @@ public abstract class LookupClient extends Thread {
         this.lock = lock;
     }
 
+    public boolean isActive() {
+        return active;
+    }
+
     abstract void sendQuery(String broadcastMessage);
+
+    /**
+     * Close a client when the communication mean is not available.
+     */
+    public void close() {
+        active = false;
+    }
+
+    /**
+     * Allow a client to be used when the communication mean becomes available.
+     */
+    public void reactivate() {
+        active = true;
+    }
+
+    public void closeQuery(String message) {
+    }
+
+    public String getSubClass() {
+        return this.getClass().toString();
+    }
 }

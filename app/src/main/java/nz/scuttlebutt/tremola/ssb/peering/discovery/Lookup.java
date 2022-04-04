@@ -13,10 +13,6 @@ import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -25,6 +21,7 @@ import static nz.scuttlebutt.tremola.ssb.core.Crypto.signDetached;
 
 public class Lookup {
 
+    public static final long DELAY = 5000L;
     private final Context context;
     private final TremolaState tremolaState;
     private final nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
@@ -33,10 +30,10 @@ public class Lookup {
     private final String localAddress;
     private int port;
     private static int queryIdentifier = 0;
-    private LinkedList<ReceivedQuery> logOfReceivedQueries;
+    private final LinkedList<Query> logOfReceivedQueries = new LinkedList<>();
+    private final LinkedList<Query> logOfReceivedReplies = new LinkedList<>();
     private final String udpBroadcastAddress;
-    private String targetName;
-    private final Map<String, Boolean> notification = new HashMap<>();
+    private final Map<String, Boolean> sentQuery;
 
     public Lookup(String localAddress, Context context, TremolaState tremolaState, String udpBroadcastAddress) {
         this.tremolaState = tremolaState;
@@ -44,12 +41,14 @@ public class Lookup {
         this.localAddress = localAddress;
         this.udpBroadcastAddress = udpBroadcastAddress;
         this.ed25519KeyPair = tremolaState.getIdStore().getIdentity();
+        sentQuery = new HashMap<>();
     }
 
     /**
      * Instantiate the lookupClients and start the listening loop.
-     * @param port  the UDP port used by this protocol
-     * @param lock  the lock to wait in case of an exception
+     *
+     * @param port the UDP port used by this protocol
+     * @param lock the lock to wait in case of an exception
      */
     public void listen(int port, ReentrantLock lock) {
         this.port = port;
@@ -58,14 +57,19 @@ public class Lookup {
         LookupUDP lookupUDP = new LookupUDP(this, context, ed25519KeyPair, lock, port, udpBroadcastAddress);
         lookupClients.add(lookupUDP);
 
-        LookupBluetooth lookupBluetooth = new LookupBluetooth(this, context, ed25519KeyPair, lock);
-        lookupClients.add(lookupBluetooth);
+//        LookupBluetooth lookupBluetooth = new LookupBluetooth(this, context, ed25519KeyPair, lock);
+//        lookupClients.add(lookupBluetooth);
 
         for (LookupClient client : lookupClients) {
-            try {
-                client.start();
-            } catch (Exception e) {
-                lookupClients.remove(client);
+            client.start();
+        }
+    }
+
+    private void closeQuery(String message) {
+        for (LookupClient client : lookupClients) {
+            if (client.isActive()) {
+                client.closeQuery(message);
+                Log.e("LOOKUP", "Close query for " + client.getSubClass());
             }
         }
     }
@@ -78,24 +82,27 @@ public class Lookup {
      * @param targetName the target name written by the user
      * @return true if the contact is not known
      */
-    public boolean prepareQuery(String targetName) {
-        this.targetName = targetName;
-        notification.put(targetName, false);
-
-        Timer timer = new Timer();
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                String text = "No result found for \"" + targetName + "\"";
-                Lookup.this.notify(targetName, text, false);
+    public String prepareQuery(String targetName) {
+        for (LookupClient client : lookupClients) {
+            if (!client.isActive()) {
+                Log.e("PREPARE_QUERY", "Client is not active!!!");
+                try {
+                    client.reactivate();
+                    client.start();
+                    Log.e("CLIENTS", "Client reactivated " + client.getSubClass());
+                } catch (Exception e) {
+                    client.close();
+                    e.printStackTrace();
+                }
             }
-        }, 3000L);
+        }
+        String broadcastMessage = createMessage(targetName);
         String databaseSearch = searchDataBase(targetName);
         if (databaseSearch != null) {
             Log.e("NOTIFY", databaseSearch);
             if (databaseSearch.equals(ed25519KeyPair.toRef())) {
                 notify(targetName, "Shortname \"" + targetName + "\" is your own shortname.", false);
-                return false;
+                return null;
             }
             String alias;
             try {
@@ -106,35 +113,51 @@ public class Lookup {
             }
             notify(targetName, "Shortname \"" + targetName
                     + "\" is in your contacts as " + alias + ".", false);
-            return false;
+            return null;
         }
-        return true;
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                String text = "No result found for \"" + targetName + "\"";
+                Lookup.this.notify(targetName, text, false);
+            }
+        }, DELAY);
+        sentQuery.put(targetName, false);
+        return broadcastMessage;
+    }
+
+    /**
+     * Send a query that comes from front end.
+     * Must be done for each available medium.
+     */
+    public void sendQuery(String broadcastMessage) {
+        for (LookupClient client : lookupClients) {
+            if (client.isActive()) {
+                    client.sendQuery(broadcastMessage);
+            } else {
+                Log.e("SEND_QUERY", "Client is not active!!!");
+            }
+        }
     }
 
     /**
      * Process an incoming request by discarding, answering or forwarding it.
      */
     public void processQuery(@NotNull String incomingRequest) {
-        Log.d("INPUT", incomingRequest);
-        if (logOfReceivedQueries == null)
-            logOfReceivedQueries = new LinkedList<>();
+        Log.d("INPUT", id2b32(ed25519KeyPair.toRef()) + " " + incomingRequest);
         try {
             JSONObject data = new JSONObject(incomingRequest);
             String msa = data.get("msa").toString();
             if (msa.endsWith(Objects.requireNonNull(ed25519KeyPair.toRef()))) {
-                return; // I'm the initiator
+                Log.d("QUERY", "I am the initiator");
+                return; // I am the initiator
             }
-            int queryId = data.getInt("queryId");
             String[] multiServerAddress = msa.split("~");
             String initId = multiServerAddress[1].split(":")[1];
-            for (Object object : logOfReceivedQueries.toArray()) {
-                ReceivedQuery query = (ReceivedQuery) object;
-                if (query.isOutDated()) {
-                    logOfReceivedQueries.remove(query);
-                } else if (query.isEqualTo(initId, queryId)) {
-                    Log.d("QUERY", "Already in db");
-                    return; // the query is already in the database
-                }
+            int queryId = data.getInt("queryId");
+            if (checkLog(logOfReceivedQueries, initId, queryId)) {
+                Log.d("QUERY", "Already in db");
+                return; // the query is already in the database
             }
 
             String shortName = data.getString("targetName");
@@ -148,13 +171,11 @@ public class Lookup {
                 message.put("queryId", queryId);
                 if (signatureIsWrong(initId, message, sig)) {
                     Log.e("VERIFY", "Verification failed");
-                    return;
+//                        return;
                 }
             } catch (Exception e) {
                 Log.e("VERIFY", msa);
             }
-            logOfReceivedQueries.add(
-                    new ReceivedQuery(initId, queryId));
 
             String targetPublicKey = searchDataBase(shortName);
             if (targetPublicKey != null) {
@@ -163,11 +184,8 @@ public class Lookup {
                 if (hopCount-- > 0) {
                     String msg = createMessage(shortName, msa, queryId, hopCount, signature);
                     for (LookupClient client : lookupClients) {
-                        try {
-                            if (client != null)
-                                client.sendQuery(msg);
-                        } catch (Exception e) {
-                            lookupClients.remove(client);
+                        if (client.isActive()) {
+                            client.sendQuery(msg);
                         }
                     }
                 }
@@ -175,20 +193,31 @@ public class Lookup {
         } catch (Exception e) {
             Log.e("PROCESS_QUERY", "Problem in process.");
         }
+        Log.d("QUERY", "Exciting query processor");
     }
 
     /**
      * Process a reply from an initiated query by discarding it or adding a new Contact.
+     *
      * @param incomingAnswer the received answer
      */
     public void processReply(@NotNull String incomingAnswer) {
         Log.d("REPLY", incomingAnswer);
         try {
             JSONObject data = new JSONObject(incomingAnswer);
-            String targetId = data.getString("targetId");
-            String targetShortName = data.getString("targetName");
             String initId = data.getString("initiatorId");
             int queryId = data.getInt("queryId");
+            String targetShortName = data.getString("targetName");
+            if (checkLog(logOfReceivedReplies, initId, queryId)) {
+                Log.d("REPLY", "Already in: " + incomingAnswer);
+                return; // the reply is already in the database
+            }
+            if (!initId.equals(ed25519KeyPair.toRef())) {
+                Log.d("REPLY", "Forwarded: " + incomingAnswer);
+                sendQuery(incomingAnswer);
+                return; // Reply is not for me
+            }
+            String targetId = data.getString("targetId");
             String friendId = data.getString("friendId");
             int hopCount = data.getInt("hop");
             String sig = data.getString("signature");
@@ -207,10 +236,7 @@ public class Lookup {
             } catch (Exception e) {
                 Log.e("VERIFY", "failed : " + friendId);
             }
-            if (!initId.equals(ed25519KeyPair.toRef())) {
-                Log.e("VERIFY", initId + " : I am not the initiator of this request");
-                return; // I am not the initiator of this request
-            } else if (!targetId.matches("^@[a-zA-Z0-9+/]{43}=.ed25519$")) {
+            if (!targetId.matches("^@[a-zA-Z0-9+/]{43}=.ed25519$")) {
                 Log.e("VERIFY", targetId + " : public key is not valid");
                 return; // public key is not valid
             }
@@ -230,19 +256,18 @@ public class Lookup {
         }
     }
 
-    /**
-     * Send a query that comes from front end.
-     * Must be done for each available medium.
-     */
-    public void sendQuery() {
-        String broadcastMessage = createMessage(targetName);
-        for (LookupClient client : lookupClients) {
-            try {
-                client.sendQuery(broadcastMessage);
-            } catch (Exception e) {
-                lookupClients.remove(client);
+    private boolean checkLog(LinkedList<Query> log, String initId, int queryId) {
+        Query reply = new Query(initId, queryId);
+        for (Object object : log.toArray()) {
+            Query query = (Query) object;
+            if (query.isOutDated()) {
+                log.remove(query);
+            } else if (query.isEqualTo(initId, queryId)) {
+                return true;
             }
         }
+        log.add(reply);
+        return false;
     }
 
     /**
@@ -257,10 +282,11 @@ public class Lookup {
      *                   the user is notified
      */
     private void notify(String targetName, String text, boolean force) {
-        if (force || Boolean.FALSE.equals(notification.remove(targetName))) {
+        closeQuery(targetName);
+        if (Boolean.FALSE.equals(sentQuery.remove(targetName)) || force) {
             ((MainActivity) context).runOnUiThread(
                     () -> Toast.makeText(context, text, Toast.LENGTH_LONG).show());
-            notification.put(targetName, true);
+            sentQuery.put(targetName, true);
         }
     }
 
@@ -307,8 +333,9 @@ public class Lookup {
 
     /**
      * Add a new contact in database in case of a successful lookup.
-     * @param targetId          the public key of the Target
-     * @param targetShortName   the ShortName of the Target
+     *
+     * @param targetId        the public key of the Target
+     * @param targetShortName the ShortName of the Target
      */
     private void addNewContact(String targetId, String targetShortName) {
         tremolaState.addContact(targetId, null);
@@ -365,12 +392,13 @@ public class Lookup {
 
     /**
      * Send a reply to the Initiator in case of a successful lookup.
-     * @param initId            the Initiator's public key
-     * @param queryId           the query identity
-     * @param targetShortName   the Target's ShortName
-     * @param hopCount          the final hop count
-     * @param targetId          the Target's public key
-     * @param initAddress       the Initiator's Multi-server address, to reach him
+     *
+     * @param initId          the Initiator's public key
+     * @param queryId         the query identity
+     * @param targetShortName the Target's ShortName
+     * @param hopCount        the final hop count
+     * @param targetId        the Target's public key
+     * @param initAddress     the Initiator's Multi-server address, to reach him
      */
     private void replyStep2(String initId, int queryId, String targetShortName, int hopCount,
                             String targetId, String initAddress) {
@@ -390,25 +418,9 @@ public class Lookup {
         } catch (JSONException e) {
             Log.e("LOOKUP_JSON", e.getMessage());
         }
+        logOfReceivedReplies.add(new Query(initId, queryId));
         String answer = reply.toString();
-        try {
-            String[] address = initAddress.split(":");
-            final DatagramSocket datagramSocket = new DatagramSocket();
-            InetAddress receiverAddress = InetAddress.getByName(address[1]);
-
-            final DatagramPacket datagramPacket = new DatagramPacket(
-                    answer.getBytes(),
-                    answer.length(),
-                    receiverAddress,
-                    Integer.parseInt(address[2])
-            );
-
-            Log.d("Reply sent", new String(datagramPacket.getData()));
-
-            datagramSocket.send(datagramPacket);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        sendQuery(answer);
     }
 
     /**
@@ -425,8 +437,9 @@ public class Lookup {
 
     /**
      * Compute a ShortName from a public key
+     *
      * @param str a public key
-     * @return    a ShortName
+     * @return a ShortName
      */
     private String id2b32(String str) {
         try {
@@ -446,8 +459,9 @@ public class Lookup {
 
     /**
      * id2b32 helper function.
-     * @param bytes  array of bytes from the public key
-     * @return       a ShortName
+     *
+     * @param bytes array of bytes from the public key
+     * @return a ShortName
      */
     private String b32encode(byte[] bytes) {
         StringBuilder b32 = new StringBuilder();
@@ -476,8 +490,9 @@ public class Lookup {
 
     /**
      * Computing and mapping of bytes for id2b32.
+     *
      * @param b40 a 5 integer array, part of the public key
-     * @return    part of the ShortName
+     * @return part of the ShortName
      */
     private String b32enc_do40bits(int[] b40) {
         long number = 0;

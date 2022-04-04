@@ -14,6 +14,7 @@ import android.view.Window
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.google.zxing.integration.android.IntentIntegrator
+import android.widget.Toast
 import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.peering.RpcResponder
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
@@ -178,6 +179,7 @@ class MainActivity : Activity() {
         resultCode: Int,
         data: Intent?
     ) {
+        Log.e("ACT_RESULT", "Result for $resultCode")
         val result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
         if (result != null) {
             Log.d("activityResult", result.toString())
@@ -188,6 +190,8 @@ class MainActivity : Activity() {
                 cmd = "qr_scan_success('" + result.contents + "');"
             }
             tremolaState.wai.eval(cmd)
+        } else {
+            Toast.makeText(this, "Activity result: " + requestCode, Toast.LENGTH_LONG).show()
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
