@@ -57,9 +57,6 @@ public class Lookup {
         LookupUDP lookupUDP = new LookupUDP(this, context, ed25519KeyPair, lock, port, udpBroadcastAddress);
         lookupClients.add(lookupUDP);
 
-//        LookupBluetooth lookupBluetooth = new LookupBluetooth(this, context, ed25519KeyPair, lock);
-//        lookupClients.add(lookupBluetooth);
-
         for (LookupClient client : lookupClients) {
             client.start();
         }
@@ -133,7 +130,7 @@ public class Lookup {
     public void sendQuery(String broadcastMessage) {
         for (LookupClient client : lookupClients) {
             if (client.isActive()) {
-                    client.sendQuery(broadcastMessage);
+                client.sendQuery(broadcastMessage);
             } else {
                 Log.e("SEND_QUERY", "Client is not active!!!");
             }
