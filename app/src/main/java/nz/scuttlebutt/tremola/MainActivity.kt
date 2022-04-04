@@ -112,7 +112,11 @@ class MainActivity : Activity() {
 
         val t0 = thread(isDaemon = true) {
             try {
-                udp!!.beacon(tremolaState.idStore.identity.verifyKey, lck, Constants.SSB_IPV4_TCPPORT)
+                udp!!.beacon(
+                    tremolaState.idStore.identity.verifyKey,
+                    lck,
+                    Constants.SSB_IPV4_TCPPORT
+                )
             } catch (e: Exception) {
                 Log.d("beacon thread", "died ${e}")
             }
@@ -138,8 +142,10 @@ class MainActivity : Activity() {
                     continue
                 }
                 thread() { // one thread per connection
-                    val rpcStream = RpcResponder(tremolaState, socket,
-                        Constants.SSB_NETWORKIDENTIFIER)
+                    val rpcStream = RpcResponder(
+                        tremolaState, socket,
+                        Constants.SSB_NETWORKIDENTIFIER
+                    )
                     rpcStream.defineServices(RpcServices(tremolaState))
                     rpcStream.startStreaming()
                 }
@@ -179,6 +185,7 @@ class MainActivity : Activity() {
         resultCode: Int,
         data: Intent?
     ) {
+        Log.e("ACT_RESULT", "Result for $resultCode")
         val result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
         if (result != null) {
             Log.d("activityResult", result.toString())

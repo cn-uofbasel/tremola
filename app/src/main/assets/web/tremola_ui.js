@@ -302,10 +302,14 @@ function qr_scan_confirmed() {
 
 /**
  * Check that entered ShortName follows the correct pattern.
- * Lower cases are accepted, and the minus in 6th position is optional
+ * Lower cases are accepted, and the minus in 6th position is optional.
+ * Digits "0" and "1" are changed to letters "O" and "I" for less confusion.
  */
 function look_up(shortname) {
-  shortname = shortname.toUpperCase()
+  // FIXME: simple hack to fast forward this step while debugging
+  // if (shortname === "")
+  //   shortname = "HWZKD-R2WNO"
+  shortname = shortname.toUpperCase().replaceAll("0", "O").replaceAll("1", "I")
   if (shortname.search("^[A-Z2-7]{5}[A-Z2-7]{5}$") !== -1)
     shortname = shortname.slice(0, 5) + '-' + shortname.slice(5, 10)
   if (shortname.search("^[A-Z2-7]{5}-[A-Z2-7]{5}$") !== -1) {

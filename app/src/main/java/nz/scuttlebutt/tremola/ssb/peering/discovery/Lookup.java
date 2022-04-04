@@ -1,30 +1,43 @@
 package nz.scuttlebutt.tremola.ssb.peering.discovery;
 
+import static nz.scuttlebutt.tremola.ssb.core.Crypto.signDetached;
+
 import android.content.Context;
+import android.nfc.FormatException;
 import android.os.Build;
 import android.util.Log;
 import android.widget.Toast;
-import nz.scuttlebutt.tremola.MainActivity;
-import nz.scuttlebutt.tremola.ssb.TremolaState;
-import nz.scuttlebutt.tremola.ssb.core.Crypto;
-import nz.scuttlebutt.tremola.ssb.db.entities.Contact;
-import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry;
+
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static nz.scuttlebutt.tremola.ssb.core.Crypto.*;
+import nz.scuttlebutt.tremola.MainActivity;
+import nz.scuttlebutt.tremola.ssb.TremolaState;
+import nz.scuttlebutt.tremola.ssb.core.Crypto;
+import nz.scuttlebutt.tremola.ssb.db.entities.Contact;
+import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry;
 
 public class Lookup {
 
+    public static final long DELAY = 5000L;
     private final Context context;
     private final TremolaState tremolaState;
     private final nz.scuttlebutt.tremola.ssb.core.SSBid ed25519KeyPair;
     private LinkedList<LookupClient> lookupClients;
+    private LookupBluetooth lookupBluetooth;
+    private LookupUDP lookupUDP;
 
     private final String localAddress;
     private int port;
@@ -32,14 +45,15 @@ public class Lookup {
     private final LinkedList<Query> logOfReceivedQueries = new LinkedList<>();
     private final LinkedList<Query> logOfReceivedReplies = new LinkedList<>();
     private final String udpBroadcastAddress;
-    private final Map<String, Boolean> sentQuery = new HashMap<>();
+    private final Map<String, Boolean> sentQuery;
 
     public Lookup(String localAddress, Context context, TremolaState tremolaState, String udpBroadcastAddress) {
         this.tremolaState = tremolaState;
         this.context = context;
         this.localAddress = localAddress;
         this.udpBroadcastAddress = udpBroadcastAddress;
-        this.ed25519KeyPair = tremolaState.getIdStore().getIdentity();
+        ed25519KeyPair = tremolaState.getIdStore().getIdentity();
+        sentQuery = new HashMap<>();
     }
 
     /**
@@ -51,28 +65,21 @@ public class Lookup {
     public void listen(int port, ReentrantLock lock) {
         this.port = port;
         lookupClients = new LinkedList<>();
-
-        LookupUDP lookupUDP = new LookupUDP(this, context, ed25519KeyPair, lock, port, udpBroadcastAddress);
+        lookupBluetooth = new LookupBluetooth(this, context, ed25519KeyPair, lock);
+        lookupClients.add(lookupBluetooth);
+        lookupUDP = new LookupUDP(this, context, ed25519KeyPair, lock, port, udpBroadcastAddress);
         lookupClients.add(lookupUDP);
-
-        LookupBluetooth lookupBluetooth = new LookupBluetooth(this, context, ed25519KeyPair, lock);
-        if (lookupBluetooth.enable()) {
-            lookupClients.add(lookupBluetooth);
-            Log.e("BLUETOOTH", "Bluetooth enabled");
-        }
-
         for (LookupClient client : lookupClients) {
-            try {
-                client.start();
-            } catch (Exception e) {
-                lookupClients.remove(client);
-            }
+            client.start();
         }
     }
 
     private void closeQuery(String message) {
-        for (LookupClient client: lookupClients) {
-            client.closeQuery(message);
+        for (LookupClient client : lookupClients) {
+            if (client.isActive()) {
+                client.closeQuery(message);
+                Log.e("LOOKUP", "Close query for " + client.getSubClass());
+            }
         }
     }
 
@@ -85,14 +92,19 @@ public class Lookup {
      * @return true if the contact is not known
      */
     public String prepareQuery(String targetName) {
-        Timer timer = new Timer();
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                String text = "No result found for \"" + targetName + "\"";
-                Lookup.this.notify(targetName, text, false);
+        for (LookupClient client : lookupClients) {
+            if (!client.isActive()) {
+                try {
+                    client.reactivate();
+                    client.start();
+                    Log.e("CLIENTS", "Client reactivated " + client.getSubClass());
+                } catch (Exception e) {
+                    client.close();
+                    e.printStackTrace();
+                }
             }
-        }, 3000L);
+        }
+        String broadcastMessage = createMessage(targetName);
         String databaseSearch = searchDataBase(targetName);
         if (databaseSearch != null) {
             Log.e("NOTIFY", databaseSearch);
@@ -111,7 +123,13 @@ public class Lookup {
                     + "\" is in your contacts as " + alias + ".", false);
             return null;
         }
-        String broadcastMessage = createMessage(targetName);
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                String text = "No result found for \"" + targetName + "\"";
+                Lookup.this.notify(targetName, text, false);
+            }
+        }, DELAY);
         sentQuery.put(targetName, false);
         return broadcastMessage;
     }
@@ -122,10 +140,12 @@ public class Lookup {
      */
     public void sendQuery(String broadcastMessage) {
         for (LookupClient client : lookupClients) {
-            try {
-                client.sendQuery(broadcastMessage);
-            } catch (Exception e) {
-                lookupClients.remove(client);
+            if (client.isActive()) {
+                try {
+                    client.sendQuery(broadcastMessage);
+                } catch (FormatException e) {
+                    Log.e("SEND_QUERY", e.getMessage());
+                }
             }
         }
     }
@@ -160,7 +180,7 @@ public class Lookup {
                 message.put("queryId", queryId);
                 if (signatureIsWrong(initId, message, sig)) {
                     Log.e("VERIFY", "Verification failed");
-                    return;
+//                    return;
                 }
             } catch (Exception e) {
                 Log.e("VERIFY", msa);
@@ -173,11 +193,12 @@ public class Lookup {
                 if (hopCount-- > 0) {
                     String msg = createMessage(shortName, msa, queryId, hopCount, signature);
                     for (LookupClient client : lookupClients) {
-                        try {
-                            if (client != null)
+                        if (client.isActive()) {
+                            try {
                                 client.sendQuery(msg);
-                        } catch (Exception e) {
-                            lookupClients.remove(client);
+                            } catch (FormatException e) {
+                                Log.e("SEND_REPLY", e.getMessage());
+                            }
                         }
                     }
                 }
@@ -275,12 +296,12 @@ public class Lookup {
      *                   the user is notified
      */
     private void notify(String targetName, String text, boolean force) {
+        closeQuery(targetName);
         if (Boolean.FALSE.equals(sentQuery.remove(targetName)) || force) {
             ((MainActivity) context).runOnUiThread(
                     () -> Toast.makeText(context, text, Toast.LENGTH_LONG).show());
             sentQuery.put(targetName, true);
         }
-        closeQuery(targetName);
     }
 
     /**
