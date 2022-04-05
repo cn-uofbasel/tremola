@@ -14,6 +14,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -42,6 +44,7 @@ public class Lookup {
         this.udpBroadcastAddress = udpBroadcastAddress;
         this.ed25519KeyPair = tremolaState.getIdStore().getIdentity();
         sentQuery = new HashMap<>();
+        test();
     }
 
     /**
@@ -439,6 +442,7 @@ public class Lookup {
      * @return a ShortName
      */
     private String id2b32(String str) {
+        Log.e("SHORTNAME", str);
         try {
             String b = str.substring(1, str.length() - 9);
             byte[] bytes = new byte[0];
@@ -502,5 +506,57 @@ public class Lookup {
             s.insert(0, b32ENC_MAP.charAt((int) number & 0x1f));
 
         return s.toString();
+    }
+
+    /**
+     * Create a shortname from the hash of the public key.
+     * <p>
+     * We are using <a href="https://philzimmermann.com/docs/human-oriented-base-32-encoding.txt">
+     * z-base-32</a> for an easier relay of the shortName.
+     * <p>
+     * With a 12 character Shortname we have a probability of 1% that
+     * 2 people have the same shortname with 152'231'720 users and
+     * 50% for 1'264'234'390 users (after the birthday paradox).
+     * <p>
+     * For a 10 character Shortname, those numbers are resp. 4'757'241
+     * and 39'507'325. Using the subjective point of view of SSB,
+     * we assume that 10 characters are enough, with a thought on keeping
+     * it short enough for ease of use.
+     *
+     * @param key the public key
+     * @return the Shortname
+     */
+    private String id2(String key) {
+        int shortnameLength = 10;
+        String dictionary = "ybndrfg8ejkmcpqxot1uwisza345h769";
+        StringBuilder shortname = new StringBuilder(shortnameLength);
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            Log.e("TEST", md.getDigestLength() + "");
+            byte[] hash = md.digest(key.substring(1, key.length() - 9).getBytes(StandardCharsets.UTF_8));
+            for (int i = 0; i < shortnameLength; i++) {
+                int value = ((int) hash[i] + 128) % 32;
+                shortname.append(dictionary.charAt(value));
+            }
+            shortname.insert(shortnameLength / 2, "-");
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return shortname.toString();
+    }
+
+    private void test() {
+        String[] keys = {"@uA2qyrA6OaSeDuSUjGtrxHU9nibaajIfVcY07cIrONc=.ed25519",
+                "@mGd2iP11YuONTdH4RwRmoBPNf3+bAulZRydjtZ6HjGk=.ed25519",
+                "@r9LvYwJ1QyyCU9rdD0vQqIK51EPauKb1so/Nv/yicEg=.ed25519",
+                "@uVz5xiyGbzs92Av/JmxtXS23e9Sqo5FiMgcwc+JvIb8=.ed25519",
+                "@KAg6CZ8oZz6wQwFw1aL0wRpXmP4Z0EuvgRbTTjFBNak=.ed25519",
+                "@tPGTlovkpYtIb7gXUstzU2ov5rBXEw/2nXb/H0hs2XY=.ed25519",
+                "@88lAtAoSwxvr110NFju/Psga3g26dn/PJ8FpgTLol94=.ed25519"};
+
+        for (String k : keys) {
+            Log.d("TEST", id2(k) + "; " + k);
+            Log.e("CONSOLE", id2(k) + "; " + k);
+        }
     }
 }
