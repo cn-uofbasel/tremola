@@ -1,12 +1,11 @@
 package nz.scuttlebutt.tremola.ssb.peering.boxstream
 
 import com.goterl.lazysodium.interfaces.SecretBox
+import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.increment
+import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.secretBox
+import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.secretUnbox
 import java.io.IOException
 import java.io.InputStream
-
-import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.secretUnbox
-import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.secretBox
-import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.increment
 
 class BoxStream(
     private val clientToServerKey: ByteArray,
@@ -90,7 +89,7 @@ class BoxStream(
 
         while (remaining > 0) {
             val sz = if (remaining > MAX_MESSAGE_SIZE) MAX_MESSAGE_SIZE
-                     else remaining
+            else remaining
             val segment = message.copyOfRange(offset, offset + sz)
             buf += encryptSegment(segment, key, nonce)
             offset += sz
@@ -106,7 +105,7 @@ class BoxStream(
 
         val encryptedBody = secretBox(seg, bodyNonce, key)
 
-        val sz = byteArrayOf((seg.size / 256).toByte(), (seg.size % 256).toByte() )
+        val sz = byteArrayOf((seg.size / 256).toByte(), (seg.size % 256).toByte())
         val hdrVal = sz + encryptedBody.copyOfRange(0, SecretBox.MACBYTES)
         // Log.d("hdrVal before encr", hdrVal.toHex() + ", " + messageSegment.size.toString())
         val encryptedHeader = secretBox(hdrVal, headerNonce, key)

@@ -25,6 +25,10 @@ import java.util.concurrent.Executors
 
 class WebAppInterface(private val act: Activity, val tremolaState: TremolaState, private val webView: WebView) {
 
+    /**
+     * Receives commands from the GUI.
+     * Note that there is no counterpart to this method in webView, {@see WebAppInterface::eval}
+     */
     @JavascriptInterface
     fun onFrontendRequest(s: String) {
         //handle the data captured from webview}
@@ -177,12 +181,21 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
         */
     }
 
+    /**
+     * Indirectly but automatically calls any method in the frontend.
+     * Note that the args must be inside single quotes (\') :
+     * "b2f_local_peer('" + arg + "', 'someText')"
+     */
     fun eval(js: String) { // send JS string to webkit frontend for execution
         webView.post(Runnable {
             webView.evaluateJavascript(js, null)
         })
     }
 
+    /**
+     * FIXME: Only called (but commented out) from tremola.js::menu_import_id,
+     * which is never called (Menu item leading to it is commented out)
+     */
     private fun importIdentity(secret: String): Boolean {
         Log.d("D/importIdentity", secret)
         if (tremolaState.idStore.setNewIdentity(Base64.decode(secret, Base64.DEFAULT))) {

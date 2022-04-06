@@ -8,6 +8,10 @@ import java.io.FileOutputStream
 
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
 
+/**
+ * The identity if the user.
+ * Read from a secret file if possible, otherwise create a new ID
+ */
 class IdStore(private val context: Context) {
 
     var identity : SSBid

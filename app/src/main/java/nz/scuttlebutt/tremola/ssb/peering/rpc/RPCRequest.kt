@@ -10,6 +10,7 @@ open class RPCRequest(
         const val CREATE_HISTORY_STREAM = "createHistoryStream"
         const val CREATE_USER_STREAM = "createUserStream"
 
+        // Epidemic Broadcast Tree: https://github.com/ssbc/ssb-ebt
         const val EBT = "ebt"
         const val EBT_REPLICATE = "replicate"
 

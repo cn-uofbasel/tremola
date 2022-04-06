@@ -12,6 +12,7 @@ import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toInt32
 
 class RPCserialization {
     companion object {
+        // 1 byte flags, 4 bytes body length, 4 bytes request number
         const val HEADER_SIZE = 9
 
         private const val STREAM: Byte = 0b00001000
@@ -32,6 +33,9 @@ class RPCserialization {
             return header.copyOfRange(1,5).toInt32()
         }
 
+        /**
+         * Parse a received message
+         */
         fun fromByteArray(buf: ByteArray): RPCMessage {
             val header = buf.copyOfRange(0, HEADER_SIZE)
             val flags = header[0]
@@ -74,6 +78,9 @@ class RPCserialization {
             )
         }
 
+        /**
+         * Create a message before sending it.
+         */
         fun toByteArray(msg: RPCMessage): ByteArray {
             var headerFlags = 0x00.toByte()
             if (msg.stream) headerFlags = headerFlags or STREAM

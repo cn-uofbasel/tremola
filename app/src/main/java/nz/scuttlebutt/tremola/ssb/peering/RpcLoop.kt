@@ -1,24 +1,21 @@
 package nz.scuttlebutt.tremola.ssb.peering
 
-import android.telephony.mbms.StreamingServiceCallback
 import android.util.Log
-import java.io.OutputStream
-import java.io.InputStream
-import java.io.Closeable
-import java.io.IOException
-import java.net.Socket
-
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact
-import nz.scuttlebutt.tremola.ssb.peering.rpc.RPCMessage
-import nz.scuttlebutt.tremola.ssb.peering.rpc.RPCserialization
 import nz.scuttlebutt.tremola.ssb.peering.boxstream.BoxStream
 import nz.scuttlebutt.tremola.ssb.peering.boxstream.SHS
+import nz.scuttlebutt.tremola.ssb.peering.rpc.RPCMessage
+import nz.scuttlebutt.tremola.ssb.peering.rpc.RPCserialization
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.utf8
 import org.json.JSONObject
+import java.io.Closeable
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.Socket
 import java.util.concurrent.Executor
 
-abstract class RpcLoop ()
-{
+abstract class RpcLoop() {
     var socket: Socket? = null
     var ostr: OutputStream? = null
     var istr: InputStream? = null
@@ -41,6 +38,7 @@ abstract class RpcLoop ()
         val raw = RPCserialization.toByteArray(msg)
         tx(raw)
     }
+
     fun tx(buf: ByteArray) {
         val boxStreamEncoded = boxStream!!.encryptForServer(buf)
         ostr!!.write(boxStreamEncoded)
@@ -48,27 +46,27 @@ abstract class RpcLoop ()
 
     fun rx_loop() {
         var buf = ByteArray(0)
-        var len = -1 // expected length of header+body
-        var seg = boxStream!!.readFromServer(istr!!) // read first segment
-        while (seg != null) {
-            buf += seg
+        var length = -1 // expected length of header+body
+        var segment = boxStream!!.readFromServer(istr!!) // read first segment
+        while (segment != null) {
+            buf += segment
             // read header
-            if (len == -1 && buf.size >= RPCserialization.HEADER_SIZE) {
-                val hdr = buf.sliceArray(0 until RPCserialization.HEADER_SIZE)
-                len = RPCserialization.getBodyLength(hdr) + RPCserialization.HEADER_SIZE
+            if (length == -1 && buf.size >= RPCserialization.HEADER_SIZE) {
+                val header = buf.sliceArray(0 until RPCserialization.HEADER_SIZE)
+                length = RPCserialization.getBodyLength(header) + RPCserialization.HEADER_SIZE
             }
             // read and dispatch body (or bodies, if enough data is available)
-            while (len != -1 && buf.size >= len) {
-                val msg = RPCserialization.fromByteArray(buf.sliceArray(0 until len))
+            while (length != -1 && buf.size >= length) {
+                val msg = RPCserialization.fromByteArray(buf.sliceArray(0 until length))
                 rpcService?.rx_rpc(msg)
-                buf = buf.copyOfRange(len, buf.size)
+                buf = buf.copyOfRange(length, buf.size)
                 if (buf.size >= RPCserialization.HEADER_SIZE) {
                     val hdr = buf.sliceArray(0 until RPCserialization.HEADER_SIZE)
-                    len = RPCserialization.getBodyLength(hdr) + RPCserialization.HEADER_SIZE
+                    length = RPCserialization.getBodyLength(hdr) + RPCserialization.HEADER_SIZE
                 } else
-                    len = -1
+                    length = -1
             }
-            seg = boxStream!!.readFromServer(istr!!) // read more segments
+            segment = boxStream!!.readFromServer(istr!!) // read more segments
         }
         Log.d("rd loop", "decoded was null")
     }
@@ -140,7 +138,7 @@ abstract class RpcLoop ()
     }
 
     fun sendInvite(me: String) {
-        val s = "{\"name\":[\"invite\",\"use\"],\"args\":[{\"feed\":"+ me +"}],\"type\":\"async\"}"
+        val s = "{\"name\":[\"invite\",\"use\"],\"args\":[{\"feed\":" + me + "}],\"type\":\"async\"}"
         val body = JSONObject(s).toString().encodeToByteArray()
         val rpcMessage = RPCMessage(
             true,
@@ -153,6 +151,7 @@ abstract class RpcLoop ()
         rpcService?.ebtRpcNr = myRequestCount
         tx(rpcMessage) //writeQueue.add()
     }
+
     fun close() {
         socket?.run {
             closeQuietly(this)

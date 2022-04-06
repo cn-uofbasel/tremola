@@ -139,22 +139,8 @@ function edit_confirmed() {
         document.getElementById('contact_id').value = '';
         if (val == '')
             id2b32(new_contact_id, 'edit_confirmed_back')
-        // id2b32(new_contact_id, 'edit_confirmed').then(short => {
-        //     tremola.contacts[new_contact_id] = {
-        //         "alias": short, "initial": short.substring(0, 1).toUpperCase(),
-        //         "color": colors[Math.floor(colors.length * Math.random())]
-        //     };
-        //     var recps = [myId, new_contact_id];
-        //     var nm = recps2nm(recps);
-        //     tremola.chats[nm] = {
-        //         "alias": "Chat w/ " + short, "posts": {}, "members": recps,
-        //         "touched": Date.now(), "lastRead": 0
-        //     };
-        //     persist();
-        //     backend("add:contact " + new_contact_id + " " + btoa(short))
-        //     menu_redraw();
-        // }).catch(console.log);
-
+        else
+            edit_confirmed_back(val, new_contact_id)
     } else if (edit_target == 'new_pub_target') {
         console.log("action for new_pub_target")
     } else if (edit_target == 'new_invite_target') {
@@ -610,17 +596,6 @@ function backend(cmdStr) { // send this to Kotlin (or simulate in case of browse
         }
         // console.log('e=', JSON.stringify(e))
         b2f_new_event(e)
-    // } else if (cmdStr[0] === 'priv:hash') {
-    //     let publicKey = cmdStr[1];
-    //     var e = {
-    //         'header': {
-    //             'tst': Date.now(),
-    //             'ref': Math.floor(1000000 * Math.random()),
-    //             'fid': myId
-    //         },
-    //         'confid': {'type': 'hash', 'text': publicKey}
-    //     }
-    //     b2f_new_event(e);
     } else {
         // console.log('backend', JSON.stringify(cmdStr))
     }

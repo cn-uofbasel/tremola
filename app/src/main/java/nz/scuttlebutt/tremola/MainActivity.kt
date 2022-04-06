@@ -43,6 +43,9 @@ class MainActivity : Activity() {
         .build()
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
+    /**
+     * Android standard library, called when the app is launched
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -52,6 +55,7 @@ class MainActivity : Activity() {
         tremolaState = TremolaState(this)
         mkSockets()
 
+        // Create an SSB Identity (i.e. a private/public key pair) and print the public key
         Log.d("IDENTITY", "is ${tremolaState.idStore.identity.toRef()}")
 
         val webView = findViewById<WebView>(R.id.webView)
@@ -100,16 +104,10 @@ class MainActivity : Activity() {
                 */
             }
         }
+        // Look for connected peers and advertise itself on network
+        // Shown in the third (rightmost) pane of the GUI
         udp = UDPbroadcast(this, tremolaState.wai)
-        lookup = Lookup(
-            getLocalIpAddress(this),
-            this,
-            tremolaState,
-            getBroadcastAddress(this).hostAddress
-        )
         val lck = ReentrantLock()
-        val lookupLock = ReentrantLock()
-
         val t0 = thread(isDaemon = true) {
             try {
                 udp!!.beacon(
@@ -121,7 +119,6 @@ class MainActivity : Activity() {
                 Log.d("beacon thread", "died ${e}")
             }
         }
-
         val t1 = thread(isDaemon = true) {
             val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
             val mLock = wifi.createMulticastLock("lock")
@@ -132,6 +129,7 @@ class MainActivity : Activity() {
                 Log.e("listen thread", "died ${e}" + e.stackTraceToString())
             }
         }
+
         val t2 = thread(isDaemon = true) { // accept loop, robust against reassigned server_socket
             while (true) {
                 var socket: Socket?
@@ -151,6 +149,16 @@ class MainActivity : Activity() {
                 }
             }
         }
+
+
+        // Let a user send, relay or respond to a lookup request
+        lookup = Lookup(
+            getLocalIpAddress(this),
+            this,
+            tremolaState,
+            getBroadcastAddress(this).hostAddress
+        )
+        val lookupLock = ReentrantLock()
         val t3 = thread(isDaemon = true) {
             try {
                 lookup!!.listen(Constants.LOOKUP_IPV4_UDPPORT, lookupLock)
@@ -241,6 +249,9 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
+    /**
+     * Initialises the sockets (on create or network change)
+     */
     private fun mkSockets() {
         try {
             broadcast_socket?.close()

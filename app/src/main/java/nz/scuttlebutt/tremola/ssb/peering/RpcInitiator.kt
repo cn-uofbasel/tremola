@@ -1,6 +1,5 @@
 package nz.scuttlebutt.tremola.ssb.peering
 
-import android.content.Context
 import android.util.Base64
 import android.util.Log
 import com.goterl.lazysodium.interfaces.Sign
@@ -8,16 +7,15 @@ import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.core.SSBid
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact
 import nz.scuttlebutt.tremola.ssb.db.entities.Pub
-import java.net.Socket
-
 import nz.scuttlebutt.tremola.ssb.peering.boxstream.SHSClient
 import nz.scuttlebutt.tremola.utils.Constants
+import java.net.Socket
 
 class RpcInitiator(
     val tremolaState: TremolaState,
     val remoteKey: ByteArray,
     val networkIdentifier: ByteArray = Constants.SSB_NETWORKIDENTIFIER
-): RpcLoop() {
+) : RpcLoop() {
 
     init {
         peerFid = "@" + Base64.encodeToString(remoteKey, Base64.NO_WRAP) + ".ed25519"

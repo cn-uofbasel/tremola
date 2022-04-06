@@ -91,7 +91,7 @@ class TremolaState(val context: Context) {
 
     fun addContact(fid: String, alias: String?) {
         contactDAO.insertContact(
-            Contact(fid, alias, false,null,1, 0, null)
+            Contact(fid, alias, false, null, 1, 0, null)
         )
     }
 
@@ -99,8 +99,12 @@ class TremolaState(val context: Context) {
         executorPool.submit {
             val lid = idStore.identity.toRef()
             if (contactDAO.getContactByLid(lid) == null)
-                contactDAO.insertContact(Contact(lid, null,false,null,
-                    scan_low = 1, front_seq = 0, front_prev = null))
+                contactDAO.insertContact(
+                    Contact(
+                        lid, null, false, null,
+                        scan_low = 1, front_seq = 0, front_prev = null
+                    )
+                )
         }
     }
 
