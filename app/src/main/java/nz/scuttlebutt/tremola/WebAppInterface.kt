@@ -14,7 +14,7 @@ import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
 import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.peering.RpcInitiator
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
-import nz.scuttlebutt.tremola.ssb.peering.discovery.Lookup
+import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.id2
 import nz.scuttlebutt.tremola.utils.getBroadcastAddress
 import org.json.JSONObject
 import java.io.IOException
@@ -117,7 +117,7 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                 return
             }
             "priv:hash" -> {
-                val shortname = Lookup.id2(args[1])
+                val shortname = id2(args[1])
                 Log.e("SHORT", shortname + ": " + args[1] + " and " + args[2])
                 eval("${args[2]}('" + shortname + "', '" + args[1] + "')")
             }

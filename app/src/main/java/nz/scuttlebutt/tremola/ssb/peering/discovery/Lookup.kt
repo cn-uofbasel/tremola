@@ -10,11 +10,10 @@ import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.signDetached
 import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.verifySignDetached
 import nz.scuttlebutt.tremola.ssb.core.SSBid
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact
+import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.id2
 import org.json.JSONException
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 
@@ -422,45 +421,6 @@ class Lookup(
     private fun keyIsTarget(receivedShortName: String, publicKey: String): Boolean {
         val computedShortName = id2(publicKey)
         return receivedShortName == computedShortName
-    }
-
-    /**
-     * Create a shortname from the hash of the public key.
-     *
-     *
-     * We are using [
- * z-base-32](https://philzimmermann.com/docs/human-oriented-base-32-encoding.txt) for an easier relay of the shortName.
-     *
-     *
-     * With a 12 character Shortname we have a probability of 1% that
-     * 2 people have the same shortname with 152'231'720 users and
-     * 50% for 1'264'234'390 users (after the birthday paradox).
-     *
-     *
-     * For a 10 character Shortname, those numbers are resp. 4'757'241
-     * and 39'507'325. Using the subjective point of view of SSB,
-     * we assume that 10 characters are enough, with a thought on keeping
-     * it short enough for ease of use.
-     *
-     * @param key the public key
-     * @return the Shortname
-     */
-    private fun id2(key: String): String {
-        val shortnameLength = 10
-        val dictionary = "ybndrfg8ejkmcpqxot1uwisza345h769"
-        val shortname = StringBuilder(shortnameLength)
-        try {
-            val md = MessageDigest.getInstance("SHA-256")
-            val hash = md.digest(key.substring(1, key.length - 9).toByteArray(StandardCharsets.UTF_8))
-            for (i in 0 until shortnameLength) {
-                val value = (hash[i].toInt() + 128) % 32
-                shortname.append(dictionary[value])
-            }
-            shortname.insert(shortnameLength / 2, "-")
-        } catch (e: NoSuchAlgorithmException) {
-            e.printStackTrace()
-        }
-        return shortname.toString()
     }
 
     companion object {
