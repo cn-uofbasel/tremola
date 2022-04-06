@@ -526,7 +526,7 @@ public class Lookup {
      * @param key the public key
      * @return the Shortname
      */
-    private String id2(String key) {
+    public static String id2(String key) {
         int shortnameLength = 10;
         String dictionary = "ybndrfg8ejkmcpqxot1uwisza345h769";
         StringBuilder shortname = new StringBuilder(shortnameLength);
@@ -555,8 +555,8 @@ public class Lookup {
                 "@88lAtAoSwxvr110NFju/Psga3g26dn/PJ8FpgTLol94=.ed25519"};
 
         for (String k : keys) {
-            Log.d("TEST", id2(k) + "; " + k);
-            Log.e("CONSOLE", id2(k) + "; " + k);
+            Log.d("TEST", Lookup.id2(k) + "; " + k);
+            Log.e("CONSOLE", Lookup.id2(k) + "; " + k);
         }
     }
 }

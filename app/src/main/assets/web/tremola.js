@@ -109,6 +109,23 @@ function menu_edit_convname() {
 //   menu_edit('new_contact_alias', "Assign alias to new contact:", "");
 // }
 
+function edit_confirmed_back(shortname, public_key) {
+    console.log("edit_confirmed_back: " + shortname + ", " + public_key)
+    tremola.contacts[new_contact_id] = {
+        "alias": shortname, "initial": shortname.substring(0, 1).toUpperCase(),
+        "color": colors[Math.floor(colors.length * Math.random())]
+    };
+    var recps = [myId, new_contact_id];
+    var nm = recps2nm(recps);
+    tremola.chats[nm] = {
+        "alias": "Chat w/ " + shortname, "posts": {}, "members": recps,
+        "touched": Date.now(), "lastRead": 0
+    };
+    persist();
+    backend("add:contact " + new_contact_id + " " + btoa(shortname))
+    menu_redraw();
+}
+
 function edit_confirmed() {
     closeOverlay()
     var val = document.getElementById('edit_text').value;
@@ -121,21 +138,22 @@ function edit_confirmed() {
     } else if (edit_target == 'new_contact_alias' || edit_target == 'trust_wifi_peer') {
         document.getElementById('contact_id').value = '';
         if (val == '')
-            id2b32(new_contact_id).then(short => {
-                tremola.contacts[new_contact_id] = {
-                    "alias": short, "initial": short.substring(0, 1).toUpperCase(),
-                    "color": colors[Math.floor(colors.length * Math.random())]
-                };
-                var recps = [myId, new_contact_id];
-                var nm = recps2nm(recps);
-                tremola.chats[nm] = {
-                    "alias": "Chat w/ " + short, "posts": {}, "members": recps,
-                    "touched": Date.now(), "lastRead": 0
-                };
-                persist();
-                backend("add:contact " + new_contact_id + " " + btoa(short))
-                menu_redraw();
-            }).catch(console.log);
+            id2b32(new_contact_id, 'edit_confirmed_back')
+        // id2b32(new_contact_id, 'edit_confirmed').then(short => {
+        //     tremola.contacts[new_contact_id] = {
+        //         "alias": short, "initial": short.substring(0, 1).toUpperCase(),
+        //         "color": colors[Math.floor(colors.length * Math.random())]
+        //     };
+        //     var recps = [myId, new_contact_id];
+        //     var nm = recps2nm(recps);
+        //     tremola.chats[nm] = {
+        //         "alias": "Chat w/ " + short, "posts": {}, "members": recps,
+        //         "touched": Date.now(), "lastRead": 0
+        //     };
+        //     persist();
+        //     backend("add:contact " + new_contact_id + " " + btoa(short))
+        //     menu_redraw();
+        // }).catch(console.log);
 
     } else if (edit_target == 'new_pub_target') {
         console.log("action for new_pub_target")
@@ -295,6 +313,7 @@ function load_chat_item(nm) { // appends a button for conversation with name nm 
 }
 
 function load_contact_list() {
+    debug()
     document.getElementById("lst:contacts").innerHTML = '';
     for (var id in tremola.contacts)
         if (!tremola.contacts[id].forgotten)
@@ -348,13 +367,16 @@ function fill_members() {
     */
     document.getElementById(myId).checked = true;
 }
+function show_contact_details(id) {
+    id2b32(id, 'show_contact_details_back')
+}
 
-async function show_contact_details(id) {
+function show_contact_details_back(shortname, id) {
     var c = tremola.contacts[id];
     new_contact_id = id;
     document.getElementById('old_contact_alias').value = c['alias'];
     var details = '';
-    details += '<br><div>Shortname: &nbsp;' + await id2b32(id) + '</div>\n';
+    details += '<br><div>Shortname: &nbsp;' + shortname + ' </div>\n';
     details += '<br><div style="word-break: break-all;">SSB identity: &nbsp;<tt>' + id + '</tt></div>\n';
     details += '<br><div class=settings style="padding: 0px;"><div class=settingsText>Forget this contact</div><div style="float: right;"><label class="switch"><input id="hide_contact" type="checkbox" onchange="toggle_forget_contact(this);"><span class="slider round"></span></label></div></div>'
     document.getElementById('old_contact_details').innerHTML = details;
@@ -364,6 +386,7 @@ async function show_contact_details(id) {
 
     document.getElementById('old_contact_alias').focus();
     overlayIsActive = true;
+    console.log(`It works from show_contact_details_short: `, shortname)
 }
 
 function toggle_forget_contact(e) {
@@ -374,12 +397,22 @@ function toggle_forget_contact(e) {
     load_contact_list();
 }
 
-async function save_content_alias() {
-    var val = document.getElementById('old_contact_alias').value;
-    if (val == '')
-        val = await id2b32(new_contact_id);
-    tremola.contacts[new_contact_id].alias = val;
-    tremola.contacts[new_contact_id].initial = val.substring(0, 1).toUpperCase();
+/**
+ * Save a nickname for a user.
+ * If not present, save its shortname (computed by the backend) as alias.
+ * The backend calls the method {@link save_content_alias_back} directly
+ */
+function save_content_alias() {
+    let alias = document.getElementById('old_contact_alias').value;
+    if (alias === '')
+        id2b32(new_contact_id, 'save_content_alias_back');
+    else
+        save_content_alias_back(alias, new_contact_id)
+}
+
+function save_content_alias_back(alias, new_contact_id) {
+    tremola.contacts[new_contact_id].alias = alias;
+    tremola.contacts[new_contact_id].initial = alias.substring(0, 1).toUpperCase();
     tremola.contacts[new_contact_id].color = colors[Math.floor(colors.length * Math.random())];
     persist();
     menu_redraw();
@@ -482,70 +515,49 @@ function unicodeStringToTypedArray(s) {
     return binstr;
 }
 
-// let b32enc_map = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-
-// function b32enc_do40bits(b40) {
-//     var long = 0, s = '';
-//     for (let i = 0; i < 5; i++) long = long * 256 + b40[i];
-//     for (let i = 0; i < 8; i++, long /= 32) s = b32enc_map[long & 0x1f] + s;
-//     return s;
-// }
-
-// function b32encode(bytes) {
-//     var b32 = '', cnt = bytes.length % 5, buf;
-//     if (cnt == 0) buf = new Uint8Array(bytes.length);
-//     else buf = new Uint8Array(bytes.length + 5 - cnt);
-//     for (var i = 0; i < bytes.length; i++) {
-//         buf[i] = bytes.charCodeAt(i);
-//     }
-//     while (buf.length > 0) {
-//         b32 += b32enc_do40bits(buf.slice(0, 5));
-//         buf = buf.slice(5, buf.length);
-//     }
-//     if (cnt != 0) {
-//         cnt = Math.floor(8 * (5 - cnt) / 5);
-//         b32 = b32.substring(0, b32.length - cnt) + '======'.substring(0, cnt)
-//     }
-//     return b32;
-// }
-
 
 function debug() {
-    id2b32("@uA2qyrA6OaSeDuSUjGtrxHU9nibaajIfVcY07cIrONc=.ed25519")
-    id2b32("@mGd2iP11YuONTdH4RwRmoBPNf3+bAulZRydjtZ6HjGk=.ed25519").then(hash => {
-        launch_snackbar("Start id2b32" + hash)
-    })
-    id2b32("@r9LvYwJ1QyyCU9rdD0vQqIK51EPauKb1so/Nv/yicEg=.ed25519")
-    id2b32("@uVz5xiyGbzs92Av/JmxtXS23e9Sqo5FiMgcwc+JvIb8=.ed25519")
-    id2b32("@KAg6CZ8oZz6wQwFw1aL0wRpXmP4Z0EuvgRbTTjFBNak=.ed25519")
-    id2b32("@tPGTlovkpYtIb7gXUstzU2ov5rBXEw/2nXb/H0hs2XY=.ed25519")
-    id2b32("@88lAtAoSwxvr110NFju/Psga3g26dn/PJ8FpgTLol94=.ed25519")
+    id2b32("@uA2qyrA6OaSeDuSUjGtrxHU9nibaajIfVcY07cIrONc=.ed25519", 'shortnameFromBackend')
+    // id2b32("@mGd2iP11YuONTdH4RwRmoBPNf3+bAulZRydjtZ6HjGk=.ed25519").then(hash => {
+    //     launch_snackbar("Start id2b32" + hash)
+    // })
+    // id2b32("@r9LvYwJ1QyyCU9rdD0vQqIK51EPauKb1so/Nv/yicEg=.ed25519")
+    // id2b32("@uVz5xiyGbzs92Av/JmxtXS23e9Sqo5FiMgcwc+JvIb8=.ed25519")
+    // id2b32("@KAg6CZ8oZz6wQwFw1aL0wRpXmP4Z0EuvgRbTTjFBNak=.ed25519")
+    // id2b32("@tPGTlovkpYtIb7gXUstzU2ov5rBXEw/2nXb/H0hs2XY=.ed25519")
+    // id2b32("@88lAtAoSwxvr110NFju/Psga3g26dn/PJ8FpgTLol94=.ed25519")
 }
 
-async function id2b32(str) { // derive a shortname from the SSB id
+function shortnameFromBackend(shortname, publicKey, method_name) {
+    console.log("Shortname for debug: " + shortname + ", " + publicKey + ", " + method_name)
+}
+
+function id2b32(str, method_name) { // derive a shortname from the SSB id
     try {
+        backend("priv:hash " + str + " " + method_name);
+        // for debugging, this does not have any effect except on the log
         let b = str.substring(1, str.length - 9); // take the @ and .ed25519 out
-        return await digestMessage(b)
-    } catch
-        (err) {
+        digestMessage(b).then(console.log)
+    } catch (err) {
         console.error(err)
     }
-    return '??'
 }
 
+/**
+ * For debugging, will be deleted
+ */
 async function digestMessage(message) {
     const dictionary = "ybndrfg8ejkmcpqxot1uwisza345h769";
     const shortnameLength = 10;
 
     const data = new TextEncoder().encode(message);
     const hash = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hash))
+    const hashArray = Array.from(new Uint8Array(hash));
     hashArray.forEach(i => (i + 128) % 32)
 
     let sn = hashArray.map(b => dictionary[(b + 128) % 32]).slice(0, shortnameLength).join("")
     sn = sn.slice(0, shortnameLength / 2) + '-' + sn.slice(shortnameLength / 2, shortnameLength)
-    console.log("Shortname: " + (sn).toString())
-    return sn
+    console.log("Shortname digestMessage: " + (sn).toString())
 }
 
 function escapeHTML(str) {
@@ -598,6 +610,17 @@ function backend(cmdStr) { // send this to Kotlin (or simulate in case of browse
         }
         // console.log('e=', JSON.stringify(e))
         b2f_new_event(e)
+    // } else if (cmdStr[0] === 'priv:hash') {
+    //     let publicKey = cmdStr[1];
+    //     var e = {
+    //         'header': {
+    //             'tst': Date.now(),
+    //             'ref': Math.floor(1000000 * Math.random()),
+    //             'fid': myId
+    //         },
+    //         'confid': {'type': 'hash', 'text': publicKey}
+    //     }
+    //     b2f_new_event(e);
     } else {
         // console.log('backend', JSON.stringify(cmdStr))
     }
@@ -638,9 +661,19 @@ function b2f_local_peer(p, status) { // wireless peer: online, offline, connecte
     load_peer_list()
 }
 
-async function b2f_new_contact_lookup(target_short_name, new_contact_id) {
+function snackbar_lookup_back(shortname, public_key) {
+    launch_snackbar(shortname, " : ", public_key)
+}
+
+/**
+ * I'm not sure this function is used...
+ * @param target_short_name
+ * @param new_contact_id
+ */
+function b2f_new_contact_lookup(target_short_name, new_contact_id) {
     console.log(`new contact lookup ${target_short_name}, ${new_contact_id}`);
-    launch_snackbar(target_short_name, " : ", await id2b32(new_contact_id));
+    id2b32(new_contact_id, 'snackbar_lookup_back')
+    // launch_snackbar(target_short_name, " : ", await id2b32(new_contact_id));
 
     tremola.contacts[new_contact_id] = {
         "alias": target_short_name,
@@ -672,15 +705,9 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
         }
         for (i in e.confid.recps) {
             var id, r = e.confid.recps[i];
-            if (!(r in tremola.contacts)) {
-                id2b32(r).then(a => {
-                    tremola.contacts[r] = {
-                        "alias": a, "initial": a.substring(0, 1).toUpperCase(),
-                        "color": colors[Math.floor(colors.length * Math.random())]
-                    }
-                    load_contact_list()
-                }).catch(console.error);
-            }
+            if (!(r in tremola.contacts))
+                id2b32(r, 'b2f_new_event_back')
+
         }
         var ch = tremola.chats[conv_name];
         if (!(e.header.ref in ch.posts)) { // new post
@@ -702,6 +729,14 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
     }
     persist();
     must_redraw = true;
+}
+
+function b2f_new_event_back(shortname, publicKey) {
+        tremola.contacts[publicKey] = {
+            "alias": shortname, "initial": shortname.substring(0, 1).toUpperCase(),
+            "color": colors[Math.floor(colors.length * Math.random())]
+        }
+        load_contact_list()
 }
 
 function b2f_new_contact(contact_str) { // '{"alias": "nickname", "id": "fid", 'img' : base64, date}'
