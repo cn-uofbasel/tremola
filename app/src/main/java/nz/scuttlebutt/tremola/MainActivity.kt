@@ -24,6 +24,7 @@ import nz.scuttlebutt.tremola.utils.Constants
 import nz.scuttlebutt.tremola.utils.getBroadcastAddress
 import nz.scuttlebutt.tremola.utils.getLocalIpAddress
 import java.lang.Thread.sleep
+import java.net.BindException
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.ServerSocket
@@ -257,28 +258,39 @@ class MainActivity : Activity() {
             broadcast_socket?.close()
             lookup_socket?.close()
         } catch (e: Exception) {
+            Log.e("MKSOCKETS", ": ${e.localizedMessage}")
         }
-        broadcast_socket = DatagramSocket(
-            Constants.SSB_IPV4_UDPPORT, // where to listen
-            InetAddress.getByName("0.0.0.0")
-        )
-        broadcast_socket?.broadcast = true
-        Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
-        lookup_socket = DatagramSocket(
-            Constants.LOOKUP_IPV4_UDPPORT, // where to listen
-            InetAddress.getByName("0.0.0.0")
-        )
-        lookup_socket?.broadcast = true
-        Log.d("new lookup sock", "${lookup_socket}, UDP port ${lookup_socket?.localPort}")
+        try {
+            broadcast_socket = DatagramSocket(
+                Constants.SSB_IPV4_UDPPORT, // where to listen
+                InetAddress.getByName("0.0.0.0")
+            )
+            broadcast_socket?.broadcast = true
+            Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
+        } catch (e: BindException) {
+            Log.e("MKSOCKETS", ": broadcast ${e.localizedMessage}")
+        }
+        try {
+            lookup_socket = DatagramSocket(
+                Constants.LOOKUP_IPV4_UDPPORT, // where to listen
+                InetAddress.getByName("0.0.0.0")
+            )
+            lookup_socket?.broadcast = true
+            Log.d("new lookup sock", "${lookup_socket}, UDP port ${lookup_socket?.localPort}")
+        } catch (e: BindException) {
+            Log.e("MKSOCKETS", ": lookup ${e.localizedMessage}")
+
+        }
         val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
         try {
             server_socket?.close()
+            server_socket = ServerSocket(Constants.SSB_IPV4_TCPPORT)
+            Log.d(
+                "SERVER TCP addr",
+                "${Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)}:${server_socket!!.localPort}"
+            )
         } catch (e: Exception) {
+            Log.e("MKSOCKETS", ": server ${e.localizedMessage}")
         }
-        server_socket = ServerSocket(Constants.SSB_IPV4_TCPPORT)
-        Log.d(
-            "SERVER TCP addr",
-            "${Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)}:${server_socket!!.localPort}"
-        )
     }
 }
