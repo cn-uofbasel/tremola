@@ -26,14 +26,14 @@ function getSetting(nm) {
 }
 
 function applySetting(nm, val) {
-    if (nm == 'background_map') {
+    if (nm === 'background_map') {
         if (val)
             document.body.style.backgroundImage = "url('img/splash-as-background.jpg')";
         else
             document.body.style.backgroundImage = null;
-    } else if (nm == 'hide_forgotten_conv') {
+    } else if (nm === 'hide_forgotten_conv') {
         load_chat_list();
-    } else if (nm == 'hide_forgotten_contacts') {
+    } else if (nm === 'hide_forgotten_contacts') {
         load_contact_list();
     }
 }

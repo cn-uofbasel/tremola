@@ -95,8 +95,8 @@
             </button>
         </div>
 
-        <div id="new_contact_discovery-overlay" class="qr-overlay" style="display: none; text-align: center">
-            <br>Enter the Tremola Shortname of a trustworthy person:<br>&nbsp;
+        <div id="new_contact-overlay" class="qr-overlay" style="display: none; text-align: center">
+            <br>Lookup: enter the Tremola Shortname of a trustworthy person:<br>&nbsp;
             <div style="display: flex;">
                 <textarea rows="2" id="contact_shortname" placeholder="Tap here to type"
                           style="width: calc(100% - 50px); vertical-align: middle;"></textarea>
@@ -111,17 +111,10 @@
                 Valid formats :<br>
                 XXXXX-XXXXX<br>
                 XXXXXXXXXX<br><br>
-                It&nbsp;must contain only letters and numbers, except an optional minus in the middle of the word
+                It&nbsp;must contain only letters and numbers, except an (optional) minus in the middle of the word
             </tt></div>
-        </div>
 
-        <div id="new_contact-overlay" class="qr-overlay" style="display: none; text-align: center">
-            <div style='margin-bottom: 15px;'>&nbsp;<br>Scan Tremola QR code<br>of a trustworthy person:</div>
-            <button class="passive buttontext" onclick="qr_scan_start();"
-                    style="border: 0pt; height: 60pt; width: 120px; background-image: url('img/qr-code-scan.svg');">
-                &nbsp;
-            </button>
-            <br>&nbsp;<hr>
+            <hr>
             <br>or enter their SSB identity as text:<br>&nbsp;
             <div style="display: flex;">
                 <textarea rows="2" id="contact_id" placeholder="Tap here to type"
@@ -138,6 +131,14 @@
                 &nbsp;&nbsp;did:ssb:ed25519:...<br>
                 &nbsp;&nbsp;@...=.ed25519
             </tt></div>
+
+            <hr>
+            <div style='margin-bottom: 15px;'>&nbsp;<br>or scan the Tremola QR code<br>of a trustworthy person:</div>
+            <button class="passive buttontext" onclick="qr_scan_start();"
+                    style="border: 0pt; height: 60pt; width: 120px; background-image: url('img/qr-code-scan.svg');">
+                &nbsp;
+            </button>
+
         </div>
         &nbsp;
         <div id="old_contact-overlay" class="qr-overlay" style="display: none; text-align: left">
@@ -146,7 +147,7 @@
             <div style="display: flex; margin-top: 5px;">
                 <textarea rows=1 id="old_contact_alias" placeholder="Tap here to type"
                           style="width: calc(100% - 50px); vertical-align: middle;"></textarea>
-                <button class="passive buttontext" onclick="save_content_alias().catch(console.log);"
+                <button class="passive buttontext" onclick="save_content_alias();"
                         style="background-image: url('img/checked.svg'); background-color: var(--passive); margin-left: 8px; border: 0pt; height: 3em; width: 3em; vertical-align: middle;">
                     &nbsp;
                 </button>

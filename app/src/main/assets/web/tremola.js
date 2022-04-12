@@ -324,7 +324,7 @@ function load_contact_item(c) { // [ id, { "alias": "thealias", "initial": "T", 
     // console.log("load_c_i", JSON.stringify(c[1]))
     bg = c[1].forgotten ? ' gray' : ' light';
     row = "<button class=contact_picture style='margin-right: 0.75em; background: " + c[1].color + ";'>" + c[1].initial + "</button>";
-    row += "<button class='chat_item_button" + bg + "' style='overflow: hidden; width: calc(100% - 4em);' onclick='show_contact_details(\"" + c[0] + "\").catch(console.log);'>";
+    row += "<button class='chat_item_button" + bg + "' style='overflow: hidden; width: calc(100% - 4em);' onclick='show_contact_details(\"" + c[0] + "\");'>";
     row += "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'>" + escapeHTML(c[1].alias) + "</div>";
     row += "<div style='text-overflow: clip; overflow: ellipsis;'><font size=-2>" + c[0] + "</font></div></div></button>";
     // var row  = "<td><button class=contact_picture></button><td style='padding: 5px;'><button class='contact_item_button light w100'>";
@@ -371,7 +371,6 @@ function show_contact_details_back(shortname, id) {
 
     document.getElementById('old_contact_alias').focus();
     overlayIsActive = true;
-    console.log(`It works from show_contact_details_short: `, shortname)
 }
 
 function toggle_forget_contact(e) {
@@ -603,11 +602,6 @@ function snackbar_lookup_back(shortname, public_key) {
     launch_snackbar(shortname, " : ", public_key)
 }
 
-/**
- * I'm not sure this function is used...
- * @param target_short_name
- * @param new_contact_id
- */
 function b2f_new_contact_lookup(target_short_name, new_contact_id) {
     console.log(`new contact lookup ${target_short_name}, ${new_contact_id}`);
     id2b32(new_contact_id, 'snackbar_lookup_back')

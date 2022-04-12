@@ -19,9 +19,11 @@ const main_scenarios = ['chats', 'contacts', 'connex'];
 
 const buttonList = ['btn:chats', 'btn:posts', 'btn:contacts', 'btn:connex'];
 
-// The elements contained by each scenario.
-// It is assumed that each scenario containing 'div:footer' has a
-// corresponding button in tremola.html#div:footer
+/**
+ * The elements contained by each scenario.
+ * It is assumed that each scenario containing 'div:footer' has a
+ * corresponding button in tremola.html#div:footer
+ */
 let scenarioDisplay = {
     'chats': ['div:qr', 'core', 'lst:chats', 'div:footer', 'plus'],
     'contacts': ['div:qr', 'core', 'lst:contacts', 'div:footer', 'plus'],
@@ -37,7 +39,6 @@ let scenarioMenu = {
         ['About', 'menu_about']],
     'contacts': [['New contact', 'menu_new_contact'],
         ['Settings', 'menu_settings'],
-        ['Lookup', 'menu_look_up'],
         ['About', 'menu_about']],
     'connex': [['New SSB pub', 'menu_new_pub'],
         ['Redeem invite code', 'menu_invite'],
@@ -167,7 +168,6 @@ function closeOverlay() {
     document.getElementById('overlay-trans').style.display = 'none';
     document.getElementById('about-overlay').style.display = 'none';
     document.getElementById('edit-overlay').style.display = 'none';
-    document.getElementById('new_contact_discovery-overlay').style.display = 'none';
     document.getElementById('old_contact-overlay').style.display = 'none';
     overlayIsActive = false;
 }
@@ -186,14 +186,6 @@ function showPreview() {
     s.display = 'initial';
     s.height = '80%'; // 0.8 * docHeight;
     document.getElementById('overlay-bg').style.display = 'initial';
-    overlayIsActive = true;
-}
-
-function menu_look_up() {
-    closeOverlay()
-    document.getElementById('new_contact_discovery-overlay').style.display = 'initial';
-    document.getElementById('overlay-bg').style.display = 'initial';
-    // document.getElementById('chat_name').focus();
     overlayIsActive = true;
 }
 
