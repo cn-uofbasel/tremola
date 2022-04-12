@@ -2,19 +2,27 @@
 
 "use strict";
 
-var overlayIsActive = false;
+let overlayIsActive = false;
 
-var display_or_not = [
+let display_or_not = [
     'div:qr', 'div:back',
     'core', 'lst:chats', 'lst:posts', 'lst:contacts', 'lst:members', 'the:connex',
     'div:footer', 'div:textarea', 'div:confirm-members', 'plus',
     'div:settings'
 ];
 
-var prev_scenario = 'chats';
-var curr_scenario = 'chats';
+let prev_scenario = 'chats';
+let curr_scenario = 'chats';
 
-var scenarioDisplay = {
+// Array of the scenarios that have a button in the footer
+const main_scenarios = ['chats', 'contacts', 'connex'];
+
+const buttonList = ['btn:chats', 'btn:posts', 'btn:contacts', 'btn:connex'];
+
+// The elements contained by each scenario.
+// It is assumed that each scenario containing 'div:footer' has a
+// corresponding button in tremola.html#div:footer
+let scenarioDisplay = {
     'chats': ['div:qr', 'core', 'lst:chats', 'div:footer', 'plus'],
     'contacts': ['div:qr', 'core', 'lst:contacts', 'div:footer', 'plus'],
     'posts': ['div:back', 'core', 'lst:posts', 'div:textarea'],
@@ -23,7 +31,7 @@ var scenarioDisplay = {
     'settings': ['div:back', 'div:settings']
 }
 
-var scenarioMenu = {
+let scenarioMenu = {
     'chats': [['New conversation', 'menu_new_conversation'],
         ['Settings', 'menu_settings'],
         ['About', 'menu_about']],
@@ -33,20 +41,8 @@ var scenarioMenu = {
         ['About', 'menu_about']],
     'connex': [['New SSB pub', 'menu_new_pub'],
         ['Redeem invite code', 'menu_invite'],
-        // ['<del>Force sync</del>', 'menu_sync'],
         ['Settings', 'menu_settings'],
         ['About', 'menu_about']],
-    /*
-                    ['Redraw', 'menu_redraw'],
-                    ['Sync', 'menu_sync'],
-                    ['Redraw', 'menu_redraw'],
-                    ['Restream', 'menu_stream_all_posts'],
-                    ['Import ID', 'menu_import_id'],
-                    ['Process msgs', 'menu_process_msgs'],
-                    ['Add pub', 'menu_add_pub'],
-                    ['Dump', 'menu_dump'],
-                    ['Reset', 'menu_reset']]
-    */
     'posts': [['Rename', 'menu_edit_convname'],
         ['(un)Forget', 'menu_forget_conv'],
         ['Settings', 'menu_settings'],
@@ -62,13 +58,13 @@ function onBackPressed() {
         closeOverlay();
         return;
     }
-    if (['chats', 'contacts', 'connex'].indexOf(curr_scenario) >= 0) {
-        if (curr_scenario == 'chats')
+    if (main_scenarios.indexOf(curr_scenario) >= 0) {
+        if (curr_scenario === 'chats')
             backend("onBackPressed");
         else
             setScenario('chats')
     } else {
-        if (curr_scenario == 'settings') {
+        if (curr_scenario === 'settings') {
             document.getElementById('div:settings').style.display = 'none';
             document.getElementById('core').style.display = null;
             document.getElementById('div:footer').style.display = null;
@@ -77,42 +73,42 @@ function onBackPressed() {
     }
 }
 
-function setScenario(s) {
-    // console.log('setScenario ' + s)
-    var lst = scenarioDisplay[s];
-    if (lst) {
-        // if (s != 'posts' && curr_scenario != "members" && curr_scenario != 'posts') {
-        if (['chats', 'contacts', 'connex'].indexOf(curr_scenario) >= 0) {
-            var cl = document.getElementById('btn:' + curr_scenario).classList;
+function setScenario(new_scenario) {
+    // console.log('setScenario ' + new_scenario)
+    let list_of_elements = scenarioDisplay[new_scenario];
+    if (list_of_elements) {
+        // if (new_scenario != 'posts' && curr_scenario != "members" && curr_scenario != 'posts') {
+
+        // Activate and deactivate the buttons in the footer
+        if (scenarioDisplay[curr_scenario].indexOf('div:footer') >= 0) {
+            let cl = document.getElementById('btn:' + curr_scenario).classList;
             cl.toggle('active', false);
             cl.toggle('passive', true);
         }
-        // console.log(' l: ' + lst)
-        display_or_not.forEach(function (d) {
-            // console.log(' l+' + d);
-            if (lst.indexOf(d) < 0) {
-                document.getElementById(d).style.display = 'none';
+        // Cycle throw the list of elements and check against the list in
+        // scenarioDisplay to display it or not
+        display_or_not.forEach(function (gui_element) {
+            // console.log(' l+' + gui_element);
+            if (list_of_elements.indexOf(gui_element) < 0) {
+                document.getElementById(gui_element).style.display = 'none';
             } else {
-                document.getElementById(d).style.display = null;
-                // console.log(' l=' + d);
+                document.getElementById(gui_element).style.display = null;
+                // console.log(' l=' + gui_element);
             }
         })
-        // console.log('s: ' + s)
-        if (s == "posts" || s == "settings") {
+        // Display the red TREMOLA title or another one
+        if (new_scenario === "posts" || new_scenario === "settings") {
             document.getElementById('tremolaTitle').style.display = 'none';
             document.getElementById('conversationTitle').style.display = null;
-            // document.getElementById('plus').style.display = 'none';
         } else {
             document.getElementById('tremolaTitle').style.display = null;
-            // if (s == "connex") { /* document.getElementById('plus').style.display = 'none'; */}
-            // else { /* document.getElementById('plus').style.display = null; */}
             document.getElementById('conversationTitle').style.display = 'none';
         }
-        if (lst.indexOf('div:qr') >= 0) {
-            prev_scenario = s;
+        if (main_scenarios.indexOf(new_scenario) >= 0) {
+            prev_scenario = new_scenario;
         }
-        curr_scenario = s;
-        if (['chats', 'contacts', 'connex'].indexOf(curr_scenario) >= 0) {
+        curr_scenario = new_scenario;
+        if (scenarioDisplay[curr_scenario].indexOf('div:footer') >= 0) {
             var cl = document.getElementById('btn:' + curr_scenario).classList;
             cl.toggle('active', true);
             cl.toggle('passive', false);
@@ -120,26 +116,27 @@ function setScenario(s) {
     }
 }
 
-function btnBridge(e) {
-    var e = e.id, m = '';
-    if (['btn:chats', 'btn:posts', 'btn:contacts', 'btn:connex'].indexOf(e) >= 0) {
-        setScenario(e.substring(4));
+function btnBridge(element) {
+    element = element.id;
+    let menu = '';
+    if (buttonList.indexOf(element) >= 0) {
+        setScenario(element.substring(4));
     }
-    if (e == 'btn:menu') {
-        if (scenarioMenu[curr_scenario].length == 0)
+    if (element === 'btn:menu') {
+        if (scenarioMenu[curr_scenario].length === 0)
             return;
         document.getElementById("menu").style.display = 'initial';
         document.getElementById("overlay-trans").style.display = 'initial';
         scenarioMenu[curr_scenario].forEach(function (e) {
-            m += "<button class=menu_item_button ";
-            m += "onclick='" + e[1] + "();'>" + e[0] + "</button><br>";
+            menu += "<button class=menu_item_button ";
+            menu += "onclick='" + e[1] + "();'>" + e[0] + "</button><br>";
+            console.log(`Scenario menu: ${menu}`);
         })
-        m = m.substring(0, m.length - 4);
-        // console.log(curr_scenario + ' menu! ' + m);
-        document.getElementById("menu").innerHTML = m;
-        return;
+        menu = menu.substring(0, menu.length - 4);
+        document.getElementById("menu").innerHTML = menu;
+
     }
-    // if (typeof Android != "undefined") { Android.onFrontendRequest(e); }
+    // if (typeof Android != "undefined") { Android.onFrontendRequest(element); }
 }
 
 function menu_settings() {
@@ -177,7 +174,7 @@ function closeOverlay() {
 
 function showPreview() {
     var draft = escapeHTML(document.getElementById('draft').value);
-    if (draft.length == 0) return;
+    if (draft.length === 0) return;
     if (!getSetting("enable_preview")) {
         new_post(draft);
         return;
@@ -209,11 +206,11 @@ function menu_about() {
 
 function plus_button() {
     closeOverlay();
-    if (curr_scenario == 'chats') {
+    if (curr_scenario === 'chats') {
         menu_new_conversation();
-    } else if (curr_scenario == 'contacts') {
+    } else if (curr_scenario === 'contacts') {
         menu_new_contact();
-    } else if (curr_scenario == 'connex') {
+    } else if (curr_scenario === 'connex') {
         menu_new_pub();
     }
 }
@@ -265,7 +262,7 @@ function qr_scan_start() {
 function qr_scan_success(s) {
     closeOverlay();
     var t = "did:ssb:ed25519:";
-    if (s.substring(0, t.length) == t) {
+    if (s.substring(0, t.length) === t) {
         s = '@' + s.substring(t.length) + '.ed25519';
     }
     var b = '';
@@ -274,7 +271,7 @@ function qr_scan_success(s) {
         // FIXME we should also test whether it is a valid ed25519 public key ...
     } catch (err) {
     }
-    if (b.length != 32) {
+    if (b.length !== 32) {
         launch_snackbar("unknown format or invalid identity");
         return;
     }
@@ -307,26 +304,26 @@ function qr_scan_confirmed() {
 
 /**
  * Check that entered ShortName follows the correct pattern.
- * Lower cases are accepted, and the minus in 6th position is optional.
- * Digits "0" and "1" are changed to letters "O" and "I" for less confusion.
+ * Upper cases are accepted, and the minus in 6th position is optional.
+ * We use z-base32: char '0', 'l', 'v' and '2' are replaced with
+ * 'o', '1', 'u' and 'z' for less confusion.
  */
 function look_up(shortname) {
     const shortnameLength = 10; // Cannot be coded into the regEx
-    // FIXME: simple hack to fast forward this step while debugging
-    // if (shortname === "")
-    //   shortname = "HWZKD-R2WNO"
+    console.log(`shortname: ${shortname}`)
     shortname = shortname.toLowerCase()
-        .replaceAll("0", "o")
-        .replaceAll("l", "1")
-        .replaceAll("v", "u")
-        .replaceAll("2", "z")
+        .replace(/0/g, "o")
+        .replace(/l/g, "1")
+        .replace(/v/g, "u")
+        .replace(/2/g, "z");
+
     if (shortname.search("^[a-z1-9]{5}[a-z1-9]{5}$") !== -1)
         shortname = shortname.slice(0, shortnameLength / 2) + '-' + shortname.slice(shortnameLength / 2, shortnameLength)
     if (shortname.search("^[a-z1-9]{5}-[a-z1-9]{5}$") !== -1) {
         closeOverlay()
         backend("look_up " + shortname);
     } else {
-        launch_snackbar(shortname + " is not a valid Shortname")
+        launch_snackbar(`"${shortname}" is not a valid Shortname`)
     }
 }
 

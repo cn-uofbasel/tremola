@@ -1,7 +1,6 @@
 // tremola.js
 
 "use strict";
-import(crypto)
 
 var tremola;
 var curr_chat;
@@ -77,7 +76,7 @@ function menu_redraw() {
     document.getElementById("lst:contacts").innerHTML = '';
     load_contact_list();
 
-    if (curr_scenario == "posts")
+    if (curr_scenario === "posts")
         load_chat(curr_chat);
 }
 
@@ -129,28 +128,28 @@ function edit_confirmed_back(shortname, public_key) {
 function edit_confirmed() {
     closeOverlay()
     var val = document.getElementById('edit_text').value;
-    if (edit_target == 'convNameTarget') {
+    if (edit_target === 'convNameTarget') {
         var ch = tremola.chats[curr_chat];
         ch.alias = val;
         persist();
         load_chat_title(ch); // also have to update entry in chats
         menu_redraw();
-    } else if (edit_target == 'new_contact_alias' || edit_target == 'trust_wifi_peer') {
+    } else if (edit_target === 'new_contact_alias' || edit_target === 'trust_wifi_peer') {
         document.getElementById('contact_id').value = '';
-        if (val == '')
+        if (val === '')
             id2b32(new_contact_id, 'edit_confirmed_back')
         else
             edit_confirmed_back(val, new_contact_id)
-    } else if (edit_target == 'new_pub_target') {
+    } else if (edit_target === 'new_pub_target') {
         console.log("action for new_pub_target")
-    } else if (edit_target == 'new_invite_target') {
+    } else if (edit_target === 'new_invite_target') {
         backend("invite:redeem " + val)
     }
 }
 
 function menu_forget_conv() {
     // toggles the forgotten flag of a conversation
-    if (curr_chat == recps2nm([myId])) {
+    if (curr_chat === recps2nm([myId])) {
         launch_snackbar("cannot be applied to own notes");
         return;
     }
@@ -158,7 +157,7 @@ function menu_forget_conv() {
     persist();
     load_chat_list() // refresh list of conversations
     closeOverlay();
-    if (curr_scenario == 'posts' /* should always be true */ && tremola.chats[curr_chat].forgotten)
+    if (curr_scenario === 'posts' /* should always be true */ && tremola.chats[curr_chat].forgotten)
         setScenario('chats');
     else
         load_chat(curr_chat) // refresh currently displayed list of posts
@@ -187,7 +186,7 @@ function menu_dump() {
 // ---
 
 function new_post(s) {
-    if (s.length == 0) {
+    if (s.length === 0) {
         return;
     }
     var draft = unicodeStringToTypedArray(document.getElementById('draft').value); // escapeHTML(
@@ -201,7 +200,7 @@ function new_post(s) {
 
 function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group or public)>
     var pl = document.getElementById('lst:posts');
-    var is_other = p["from"] != myId;
+    var is_other = p["from"] !== myId;
     var box = "<div class=light style='padding: 3pt; border-radius: 4px; box-shadow: 0 0 5px rgba(0,0,0,0.7);'>"
     if (is_other)
         box += "<font size=-1><i>" + fid2display(p["from"]) + "</i></font><br>";
@@ -265,7 +264,7 @@ function load_chat_list() {
     load_chat_item(meOnly)
     var lop = [];
     for (var p in tremola.chats) {
-        if (p != meOnly && !tremola.chats[p]['forgotten'])
+        if (p !== meOnly && !tremola.chats[p]['forgotten'])
             lop.push(p)
     }
     lop.sort((a, b) => tremola.chats[b]["touched"] - tremola.chats[a]["touched"])
@@ -275,7 +274,7 @@ function load_chat_list() {
     // forgotten chats: unsorted
     if (!tremola.settings.hide_forgotten_conv)
         for (var p in tremola.chats)
-            if (p != meOnly && tremola.chats[p]['forgotten'])
+            if (p !== meOnly && tremola.chats[p]['forgotten'])
                 load_chat_item(p)
 }
 
@@ -299,7 +298,6 @@ function load_chat_item(nm) { // appends a button for conversation with name nm 
 }
 
 function load_contact_list() {
-    debug()
     document.getElementById("lst:contacts").innerHTML = '';
     for (var id in tremola.contacts)
         if (!tremola.contacts[id].forgotten)
@@ -353,6 +351,7 @@ function fill_members() {
     */
     document.getElementById(myId).checked = true;
 }
+
 function show_contact_details(id) {
     id2b32(id, 'show_contact_details_back')
 }
@@ -482,7 +481,7 @@ function getUnreadCnt(nm) {
 function set_chats_badge(nm) {
     var e = document.getElementById(nm + '-badge'), cnt;
     cnt = getUnreadCnt(nm)
-    if (cnt == 0) {
+    if (cnt === 0) {
         e.style.display = 'none';
         return
     }
@@ -502,48 +501,12 @@ function unicodeStringToTypedArray(s) {
 }
 
 
-function debug() {
-    id2b32("@uA2qyrA6OaSeDuSUjGtrxHU9nibaajIfVcY07cIrONc=.ed25519", 'shortnameFromBackend')
-    // id2b32("@mGd2iP11YuONTdH4RwRmoBPNf3+bAulZRydjtZ6HjGk=.ed25519").then(hash => {
-    //     launch_snackbar("Start id2b32" + hash)
-    // })
-    // id2b32("@r9LvYwJ1QyyCU9rdD0vQqIK51EPauKb1so/Nv/yicEg=.ed25519")
-    // id2b32("@uVz5xiyGbzs92Av/JmxtXS23e9Sqo5FiMgcwc+JvIb8=.ed25519")
-    // id2b32("@KAg6CZ8oZz6wQwFw1aL0wRpXmP4Z0EuvgRbTTjFBNak=.ed25519")
-    // id2b32("@tPGTlovkpYtIb7gXUstzU2ov5rBXEw/2nXb/H0hs2XY=.ed25519")
-    // id2b32("@88lAtAoSwxvr110NFju/Psga3g26dn/PJ8FpgTLol94=.ed25519")
-}
-
-function shortnameFromBackend(shortname, publicKey, method_name) {
-    console.log("Shortname for debug: " + shortname + ", " + publicKey + ", " + method_name)
-}
-
 function id2b32(str, method_name) { // derive a shortname from the SSB id
     try {
         backend("priv:hash " + str + " " + method_name);
-        // for debugging, this does not have any effect except on the log
-        let b = str.substring(1, str.length - 9); // take the @ and .ed25519 out
-        digestMessage(b).then(console.log)
     } catch (err) {
         console.error(err)
     }
-}
-
-/**
- * For debugging, will be deleted
- */
-async function digestMessage(message) {
-    const dictionary = "ybndrfg8ejkmcpqxot1uwisza345h769";
-    const shortnameLength = 10;
-
-    const data = new TextEncoder().encode(message);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hash));
-    hashArray.forEach(i => (i + 128) % 32)
-
-    let sn = hashArray.map(b => dictionary[(b + 128) % 32]).slice(0, shortnameLength).join("")
-    sn = sn.slice(0, shortnameLength / 2) + '-' + sn.slice(shortnameLength / 2, shortnameLength)
-    console.log("Shortname digestMessage: " + (sn).toString())
 }
 
 function escapeHTML(str) {
@@ -565,7 +528,7 @@ function fid2display(fid) {
     var a = '';
     if (fid in tremola.contacts)
         a = tremola.contacts[fid].alias;
-    if (a == '')
+    if (a === '')
         a = fid.substring(0, 9);
     return a;
 }
@@ -578,11 +541,11 @@ function backend(cmdStr) { // send this to Kotlin (or simulate in case of browse
         return;
     }
     cmdStr = cmdStr.split(' ')
-    if (cmdStr[0] == 'ready')
+    if (cmdStr[0] === 'ready')
         b2f_initialize('@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.ed25519')
-    else if (cmdStr[0] == 'exportSecret')
+    else if (cmdStr[0] === 'exportSecret')
         b2f_showSecret('secret_of_id_which_is@AAAA==.ed25519')
-    else if (cmdStr[0] == 'priv:post') {
+    else if (cmdStr[0] === 'priv:post') {
         var draft = atob(cmdStr[1])
         cmdStr.splice(0, 2)
         var e = {
@@ -627,10 +590,10 @@ function b2f_local_peer(p, status) { // wireless peer: online, offline, connecte
     console.log("local peer", p, status);
     if (!(p in localPeers))
         localPeers[p] = [false, false]
-    if (status == 'online') localPeers[p][0] = true
-    if (status == 'offline') localPeers[p][0] = false
-    if (status == 'connected') localPeers[p][1] = true
-    if (status == 'disconnected') localPeers[p][1] = false
+    if (status === 'online') localPeers[p][0] = true
+    if (status === 'offline') localPeers[p][0] = false
+    if (status === 'connected') localPeers[p][1] = true
+    if (status === 'disconnected') localPeers[p][1] = false
     if (!localPeers[p][0] && !localPeers[p][1])
         delete localPeers[p]
     load_peer_list()
@@ -669,7 +632,7 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
     // console.log('hdr', JSON.stringify(e.header))
     // console.log('pub', JSON.stringify(e.public))
     // console.log('cfd', JSON.stringify(e.confid))
-    if (e.confid && e.confid.type == 'post') {
+    if (e.confid && e.confid.type === 'post') {
         var i, conv_name = recps2nm(e.confid.recps);
         if (!(conv_name in tremola.chats)) { // create new conversation if needed
             tremola.chats[conv_name] = {
@@ -692,7 +655,7 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
             ch["posts"][e.header.ref] = p;
             if (ch["touched"] < e.header.tst)
                 ch["touched"] = e.header.tst
-            if (curr_scenario == "posts" && curr_chat == conv_name) {
+            if (curr_scenario === "posts" && curr_chat === conv_name) {
                 load_chat(conv_name); // reload all messages (not very efficient ...)
                 ch["lastRead"] = Date.now();
             }
@@ -707,11 +670,11 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
 }
 
 function b2f_new_event_back(shortname, publicKey) {
-        tremola.contacts[publicKey] = {
-            "alias": shortname, "initial": shortname.substring(0, 1).toUpperCase(),
-            "color": colors[Math.floor(colors.length * Math.random())]
-        }
-        load_contact_list()
+    tremola.contacts[publicKey] = {
+        "alias": shortname, "initial": shortname.substring(0, 1).toUpperCase(),
+        "color": colors[Math.floor(colors.length * Math.random())]
+    }
+    load_contact_list()
 }
 
 function b2f_new_contact(contact_str) { // '{"alias": "nickname", "id": "fid", 'img' : base64, date}'
@@ -728,7 +691,7 @@ function b2f_initialize(id) {
     myId = id
     if (window.localStorage.tremola) {
         tremola = JSON.parse(window.localStorage.getItem('tremola'));
-        if (tremola != null && id != tremola.id) // check for clash of IDs, erase old state if new
+        if (tremola != null && id !== tremola.id) // check for clash of IDs, erase old state if new
             tremola = null;
     } else
         tremola = null;
@@ -739,7 +702,7 @@ function b2f_initialize(id) {
         console.log("loaded ", JSON.stringify(tremola))
     if (!('settings' in tremola))
         tremola.settings = {}
-    var nm, ref;
+    var nm;
     for (nm in tremola.settings)
         setSetting(nm, tremola.settings[nm])
     load_chat_list()

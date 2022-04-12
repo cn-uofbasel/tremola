@@ -183,8 +183,10 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
 
     /**
      * Indirectly but automatically calls any method in the frontend.
-     * Note that the args must be inside single quotes (\') :
-     * "b2f_local_peer('" + arg + "', 'someText')"
+     * Note that the args must be inside single quotes (') :
+     * eval("b2f_local_peer('" + arg + "', 'someText')")
+     * OR
+     * eval("b2f_local_peer('${arg}', 'someText')")
      */
     fun eval(js: String) { // send JS string to webkit frontend for execution
         webView.post(Runnable {
