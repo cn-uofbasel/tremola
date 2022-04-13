@@ -244,9 +244,11 @@ class MainActivity : Activity() {
         Log.d("onDestroy", "")
         try {
             broadcast_socket?.close()
+            lookup_socket?.close()
         } catch (e: Exception) {
         }
         broadcast_socket = null
+        lookup_socket = null
         super.onDestroy()
     }
 
@@ -265,6 +267,7 @@ class MainActivity : Activity() {
                 Constants.SSB_IPV4_UDPPORT, // where to listen
                 InetAddress.getByName("0.0.0.0")
             )
+            broadcast_socket!!.reuseAddress = true
             broadcast_socket?.broadcast = true
             Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
         } catch (e: BindException) {
@@ -275,6 +278,7 @@ class MainActivity : Activity() {
                 Constants.LOOKUP_IPV4_UDPPORT, // where to listen
                 InetAddress.getByName("0.0.0.0")
             )
+            lookup_socket!!.reuseAddress = true
             lookup_socket?.broadcast = true
             Log.d("new lookup sock", "${lookup_socket}, UDP port ${lookup_socket?.localPort}")
         } catch (e: BindException) {
