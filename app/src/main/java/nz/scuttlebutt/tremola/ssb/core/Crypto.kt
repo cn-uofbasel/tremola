@@ -57,13 +57,20 @@ class Crypto {
             return if (valid) decrypted else null
         }
 
+        /**
+         * Sign a message with a private key.
+         * For signing with a peer's own key, consider using SSBid::sign instead
+         */
         @JvmStatic
         fun signDetached(data: ByteArray, key: ByteArray): ByteArray {
             val sig = ByteArray(64) // ed25519 signature
-            lazySodiumInst.cryptoSignDetached (sig, data, data.size.toLong(), key)
+            lazySodiumInst.cryptoSignDetached(sig, data, data.size.toLong(), key)
             return sig
         }
 
+        /**
+         * Verify that signature matches the (public) key
+         */
         @JvmStatic
         fun verifySignDetached(signature: ByteArray, message: ByteArray, key: ByteArray): Boolean {
             return lazySodiumInst.cryptoSignVerifyDetached(signature, message, message.size, key)

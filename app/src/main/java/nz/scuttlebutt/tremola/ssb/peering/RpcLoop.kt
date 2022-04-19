@@ -17,8 +17,8 @@ import java.util.concurrent.Executor
 
 abstract class RpcLoop() {
     var socket: Socket? = null
-    var ostr: OutputStream? = null
-    var istr: InputStream? = null
+    var outstr: OutputStream? = null
+    var instr: InputStream? = null
     var shs: SHS? = null
     var boxStream: BoxStream? = null
     var myRequestCount = 0
@@ -28,9 +28,10 @@ abstract class RpcLoop() {
     var peerMark: String? = null
     // var host = ""
 
-    fun defineServices(srvc: RpcServices?) { // mutually link the two objects
-        rpcService = srvc
-        srvc!!.rpcLoop = this
+    /** Mutually link the two objects */
+    fun defineServices(service: RpcServices?) {
+        rpcService = service
+        service!!.rpcLoop = this
     }
 
     fun tx(msg: RPCMessage) {
@@ -41,13 +42,13 @@ abstract class RpcLoop() {
 
     fun tx(buf: ByteArray) {
         val boxStreamEncoded = boxStream!!.encryptForServer(buf)
-        ostr!!.write(boxStreamEncoded)
+        outstr!!.write(boxStreamEncoded)
     }
 
     fun rx_loop() {
         var buf = ByteArray(0)
         var length = -1 // expected length of header+body
-        var segment = boxStream!!.readFromServer(istr!!) // read first segment
+        var segment = boxStream!!.readFromServer(instr!!) // read first segment
         while (segment != null) {
             buf += segment
             // read header
@@ -66,7 +67,7 @@ abstract class RpcLoop() {
                 } else
                     length = -1
             }
-            segment = boxStream!!.readFromServer(istr!!) // read more segments
+            segment = boxStream!!.readFromServer(instr!!) // read more segments
         }
         Log.d("rd loop", "decoded was null")
     }

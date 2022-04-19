@@ -29,7 +29,7 @@ interface LogEntryDAO {
     fun getEventByHashId(hashId: String): List<LogEntry>
 
     @Query("SELECT * FROM logentry WHERE lid = :logId AND lsq = :logSeq")
-    fun getEventByLogIdAndSeq(logId: String, logSeq: Int) : LogEntry?
+    fun getEventByLogIdAndSeq(logId: String, logSeq: Int): LogEntry?
 
     /*
     @Query("SELECT * FROM logentry WHERE cid = :convId ORDER BY clt DESC)

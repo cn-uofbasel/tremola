@@ -1,7 +1,5 @@
 package nz.scuttlebutt.tremola.ssb.peering.rpc
 
-import android.util.Log
-
 open class RPCRequest(
     open val name: List<String>,
     open val type: String

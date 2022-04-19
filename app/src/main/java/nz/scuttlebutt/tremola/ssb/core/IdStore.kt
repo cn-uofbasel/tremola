@@ -9,12 +9,12 @@ import java.io.FileOutputStream
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
 
 /**
- * The identity if the user.
- * Read from a secret file if possible, otherwise create a new ID
+ * The identity of the user.
+ * Read from a (secret) file if possible, otherwise create a new ID
  */
 class IdStore(private val context: Context) {
 
-    var identity : SSBid
+    var identity: SSBid
 
     init {
         val id = readFromFile()
@@ -47,7 +47,11 @@ class IdStore(private val context: Context) {
                 "# your public name: ${newId.toRef()}\n"
         val fileOutputStream: FileOutputStream
         try {
-            try { context.deleteFile("secret") } catch (e: java.lang.Exception) { Log.d("idSTore write", "no delete?")}
+            try {
+                context.deleteFile("secret")
+            } catch (e: java.lang.Exception) {
+                Log.d("idSTore write", "no delete?")
+            }
             fileOutputStream = context.openFileOutput("secret", Context.MODE_PRIVATE)
             fileOutputStream.write(jsonSecret.encodeToByteArray())
             fileOutputStream.close()

@@ -10,6 +10,9 @@ interface ContactDAO {
     @Query("SELECT * FROM contact")
     fun getAll(): List<Contact>
 
+    /**
+     * Retrieve a contact by its log id (i.e. public id)
+     */
     @Query("SELECT * FROM contact WHERE lid = :lid")
     fun getContactByLid(lid: String): Contact?
 
@@ -26,7 +29,7 @@ interface ContactDAO {
     fun insertContact(vararg peers: Contact)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insertContact(peer: Contact) : Long
+    fun insertContact(peer: Contact): Long
 
     @Update
     fun updateContact(vararg peers: Contact)

@@ -2,7 +2,7 @@ package nz.scuttlebutt.tremola.utils
 
 //https://stackoverflow.com/questions/40398072/singleton-with-parameter-in-kotlin
 
-open class SingletonHolder<out T, in A>(private var creator: (A) -> T ) {
+open class SingletonHolder<out T, in A>(private var creator: (A) -> T) {
     @Volatile
     private var instance: T? = null
 

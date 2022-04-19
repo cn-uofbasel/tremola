@@ -3,30 +3,43 @@ package nz.scuttlebutt.tremola.ssb
 import android.content.Context
 import nz.scuttlebutt.tremola.MainActivity
 import nz.scuttlebutt.tremola.WebAppInterface
-import java.util.concurrent.*
-
-import nz.scuttlebutt.tremola.ssb.peering.PeeringPool
+import nz.scuttlebutt.tremola.ssb.core.IdStore
 import nz.scuttlebutt.tremola.ssb.db.TremolaDatabase
 import nz.scuttlebutt.tremola.ssb.db.daos.ContactDAO
+import nz.scuttlebutt.tremola.ssb.db.daos.LogEntryDAO
 import nz.scuttlebutt.tremola.ssb.db.daos.PubDAO
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact
-import nz.scuttlebutt.tremola.ssb.db.entities.Pub
-import nz.scuttlebutt.tremola.ssb.core.IdStore
-import nz.scuttlebutt.tremola.ssb.db.daos.LogEntryDAO
 import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
+import nz.scuttlebutt.tremola.ssb.db.entities.Pub
+import nz.scuttlebutt.tremola.ssb.peering.PeeringPool
 import nz.scuttlebutt.tremola.utils.Constants.Companion.EBT_FORCE_FRONTIER_INTERVAL
 import nz.scuttlebutt.tremola.utils.Constants.Companion.WIFI_DISCOVERY_INTERVAL
 
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.TimeUnit
 
+/**
+ * All information about the local peer
+ */
 class TremolaState(val context: Context) {
     private val numberOfCores = Runtime.getRuntime().availableProcessors()
     private val executorPool: ScheduledExecutorService
+
+    // Load database
     private val db = TremolaDatabase.getInstance(context)
-    val idStore = IdStore(context)
     val logDAO: LogEntryDAO = db.logDAO()
     val pubDAO: PubDAO = db.pubDAO()
     val contactDAO: ContactDAO = db.contactDAO()
+
+    // The identity, i.e. the crypto keys
+    val idStore = IdStore(context)
+
+    // The other known and/or active peers
     val peers: PeeringPool
+
+    // Interface to the frontend
     lateinit var wai: WebAppInterface
     val msgTypes = SSBmsgTypes(this)
 
@@ -36,19 +49,16 @@ class TremolaState(val context: Context) {
             threadFactory("SSB Pool", true)
         )
         peers = PeeringPool(this)
-        // addPubsToPool()
         addOwnIdentityAsFeed()
-        /*
-        executorPool.scheduleAtFixedRate(
-            { processMessages() }, 60, 60, TimeUnit.SECONDS
-        )
-        */
+
         executorPool.scheduleAtFixedRate({ // connect to wiFi peers that show up
-            for (u in (context as MainActivity).udp!!.local.keys) {
-                val s = u.split("~")
-                val a = "@" + s[1].substring(4) + ".ed25519"
-                val h = s[0].split(":")
-                peers.add(h[1], h[2].toInt(), a) // will filter out already connected peers
+            for (markOfAvailablePeers in (context as MainActivity).udp!!.markOfLocalPeers.keys) {
+                val s = markOfAvailablePeers.split("~")
+                // Transform public key into log ID
+                val logID = "@" + s[1].substring(4) + ".ed25519"
+                // 3 part address: 'net', ip address and port
+                val address = s[0].split(":")
+                peers.add(address[1], address[2].toInt(), logID) // will filter out already connected peers
             }
         }, 3, WIFI_DISCOVERY_INTERVAL, TimeUnit.SECONDS)
         executorPool.scheduleAtFixedRate({ // kick EBT (send current frontier) on regular intervals

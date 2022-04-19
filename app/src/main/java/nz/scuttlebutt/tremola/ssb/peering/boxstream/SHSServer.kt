@@ -18,27 +18,26 @@ import nz.scuttlebutt.tremola.ssb.core.SSBid
 class SHSServer(
     myId: SSBid,
     networkIdentifier: ByteArray = Constants.SSB_NETWORKIDENTIFIER
-) : SHS(myId, networkIdentifier)
-{
+) : SHS(myId, networkIdentifier) {
     private var detachedSignature: ByteArray? = null
 
-    fun performHandshake(istr: InputStream, ostr: OutputStream): BoxStream? {
-        ostr.write(mkHelloMessage())
-        ostr.flush()
+    fun performHandshake(inputStream: InputStream, outputStream: OutputStream): BoxStream? {
+        outputStream.write(mkHelloMessage())
+        outputStream.flush()
         var buf = ByteArray(64)
-        var sz = istr.read(buf)
-        if (sz == -1 || !isValidHello(buf)) {
-            Log.d("Handshake", "no hello, or bad?" + sz)
+        var size = inputStream.read(buf)
+        if (size == -1 || !isValidHello(buf)) {
+            Log.d("Handshake", "no hello, or bad?$size")
             return null
         }
         buf = ByteArray(112)
-        sz = istr.read(buf)
-        if (sz == -1 || !isValidAuthenticate(buf)) {
-            Log.d("Handshake", "no authenticate, or bad?" + sz)
+        size = inputStream.read(buf)
+        if (size == -1 || !isValidAuthenticate(buf)) {
+            Log.d("Handshake", "no authenticate, or bad?$size")
             return null
         }
-        ostr.write(mkAcceptMessage())
-        ostr.flush()
+        outputStream.write(mkAcceptMessage())
+        outputStream.flush()
         return mkBoxStream()
     }
 
@@ -58,7 +57,8 @@ class SHSServer(
 
             val curve25519ClientKey = ByteArray(Sign.CURVE25519_PUBLICKEYBYTES)
             lazySodium.convertPublicKeyEd25519ToCurve25519(curve25519ClientKey, remoteKey!!)
-            this.sharedSecretAb = lazySodium.cryptoScalarMult(localEphemeralKeyPair.secretKey, curve25519ClientKey.toKey())
+            this.sharedSecretAb =
+                lazySodium.cryptoScalarMult(localEphemeralKeyPair.secretKey, curve25519ClientKey.toKey())
             return true
         }
         return false
@@ -71,7 +71,7 @@ class SHSServer(
 
         val zeroNonce = ByteArray(SecretBox.NONCEBYTES)
         val key = (networkIdentifier + sharedSecretab!!.asBytes +
-                   sharedSecretaB!!.asBytes + sharedSecretAb!!.asBytes).sha256()
+                sharedSecretaB!!.asBytes + sharedSecretAb!!.asBytes).sha256()
         val body = secretBox(detachedSignatureB, zeroNonce, key)
 
         completed = true
@@ -79,9 +79,7 @@ class SHSServer(
     }
 
     override fun computeSharedSecrets() {
-        sharedSecretab = lazySodium.cryptoScalarMult(
-            localEphemeralKeyPair.secretKey, remoteEphemeralKey!!.toKey()
-        )
+        sharedSecretab = lazySodium.cryptoScalarMult(localEphemeralKeyPair.secretKey, remoteEphemeralKey!!.toKey())
         sharedSecretaB = Key.fromBytes(myId.deriveSharedSecretAb(remoteEphemeralKey!!))
     }
 }

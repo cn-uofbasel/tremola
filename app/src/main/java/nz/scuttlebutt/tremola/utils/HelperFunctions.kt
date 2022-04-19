@@ -77,6 +77,9 @@ class HelperFunctions {
                 .toByteArray()
         }
 
+        /**
+         * Extract the public key from the log ID
+         */
         @JvmStatic
         fun String.deRef(): ByteArray { // only works for IDs, but not msg keys or blob hashes
             // Log.d("deRef", "<" + this + ">")

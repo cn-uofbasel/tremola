@@ -6,11 +6,14 @@ import com.goterl.lazysodium.interfaces.Sign
 import com.goterl.lazysodium.utils.KeyPair
 import org.json.JSONObject
 
-import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.sha256
 import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.signDetached
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
 import nz.scuttlebutt.tremola.utils.Json_PP
 
+/**
+ * Public/private key SSB identity.
+ * Register the keys if given as arg, otherwise create an identity.
+ */
 class SSBid { // ed25519
 
     constructor(secret: ByteArray, public: ByteArray) {
@@ -38,18 +41,26 @@ class SSBid { // ed25519
         signingKey = k.secretKey.asBytes
         verifyKey = k.publicKey.asBytes
     }
+
     constructor() { // generate new ID
         val keypair = lazySodiumInst.cryptoSignKeypair()
         signingKey = keypair.secretKey.asBytes
         verifyKey = keypair.publicKey.asBytes
     }
 
-    var signingKey:   ByteArray? = null // private
-    var verifyKey:    ByteArray         // public i.e., the SSB ID proper
+    /** Private key */
+    var signingKey: ByteArray? = null
+
+    /** Public key i.e., the SSB ID proper */
+    var verifyKey: ByteArray
+
     private val lazySodiumInst = Crypto.lazySodiumInst
 
     // ------------------------------------------------------------------------
 
+    /**
+     * Return the public key in the form of identity
+     */
     fun toRef(): String {
         return "@" + verifyKey.toBase64() + ".ed25519"
     }
@@ -60,6 +71,9 @@ class SSBid { // ed25519
         return "{\"curve\":\"ed25519\",\"secret\":\"${s}\"}"
     }
 
+    /**
+     * Sign the data with own private key, returning the signature.
+     */
     fun sign(data: ByteArray): ByteArray {
         val signature = ByteArray(Sign.BYTES)
         if (lazySodiumInst.cryptoSignDetached(signature, data, data.size.toLong(), signingKey!!))
@@ -67,6 +81,10 @@ class SSBid { // ed25519
         throw Exception("Could not sign with Identity.")
     }
 
+    /**
+     * Verify that the signature comes from self.
+     * For other signatories, see {@link Crypto.Companion.verifySignDetached}
+     */
     fun verify(signature: ByteArray, data: ByteArray): Boolean {
         return lazySodiumInst.cryptoSignVerifyDetached(signature, data, data.size, verifyKey)
     }
@@ -119,47 +137,51 @@ class SSBid { // ed25519
         val pubkey = raw.sliceArray(24..55)
         val kek = ByteArray(32)
         lazySodiumInst.cryptoScalarMult(kek, ed25519SktoCurve(signingKey!!), pubkey)
-        var recipients = raw.sliceArray(56 .. raw.lastIndex)
+        var recipients = raw.sliceArray(56..raw.lastIndex)
 
         for (i in 0..6) {
             if (recipients.size < 49) return null
             val cdek = Crypto.secretUnbox(recipients.copyOfRange(0, 49), nonce, kek)
             if (cdek != null) {
                 val numberRecipients = cdek[0].toInt()
-                val data = raw.sliceArray(56 + numberRecipients*49 .. raw.lastIndex)
+                val data = raw.sliceArray(56 + numberRecipients * 49..raw.lastIndex)
                 return Crypto.secretUnbox(data, nonce, cdek.sliceArray(1..32))
             }
-            recipients = raw.sliceArray(56 + (i+1)*49 .. raw.lastIndex)
+            recipients = raw.sliceArray(56 + (i + 1) * 49..raw.lastIndex)
         }
         return null
     }
 
-     fun formatEvent(prev: String?, seq: Int, auth: String, ts: String,
-                            hash: String, cont: Any, sig: ByteArray?): String {
-         // returns SSB-compliant JSON string, cont is either JSONObject/dict or a string
-         var cstr = if (cont is String) "\"${cont}\"" else ((cont as JSONObject)).toString(2)
-         cstr = cstr.replace("\n", "\n  ")
-         cstr = cstr.replace("\\/", "/") // argh, silly json.org formatting
-         var estr = if (prev == null) "{\n  \"previous\": null," else
-                                     "{\n  \"previous\": \"${prev}\","
-         estr += """
+    fun formatEvent(
+        prev: String?, seq: Int, auth: String, ts: String,
+        hash: String, cont: Any, sig: ByteArray?
+    ): String {
+        // returns SSB-compliant JSON string, cont is either JSONObject/dict or a string
+        var cstr = if (cont is String) "\"${cont}\"" else ((cont as JSONObject)).toString(2)
+        cstr = cstr.replace("\n", "\n  ")
+        cstr = cstr.replace("\\/", "/") // argh, silly json.org formatting
+        var estr = if (prev == null) "{\n  \"previous\": null," else
+            "{\n  \"previous\": \"${prev}\","
+        estr += """
   "sequence": ${seq},
   "author": "${auth}",
   "timestamp": ${ts},
   "hash": "${hash}",
   "content": ${cstr}"""
-         if (sig != null)
+        if (sig != null)
             estr += ",\n  \"signature\": \"{sig}\"\n}"
-         else
+        else
             estr += "\n}"
-         return Json_PP().makePretty(estr)
+        return Json_PP().makePretty(estr)
     }
 
     fun signSSBEvent(prev: String?, seq: Int, content: Any): String {
-        val estr = formatEvent(prev, seq, this.toRef(), System.currentTimeMillis().toString(),
-                         "sha256", content, null)
+        val estr = formatEvent(
+            prev, seq, this.toRef(), System.currentTimeMillis().toString(),
+            "sha256", content, null
+        )
         val sig = Base64.encode(signDetached(estr.encodeToByteArray(), signingKey!!), Base64.NO_WRAP)
-        return ( estr.slice(0..(estr.lastIndex-2)) +
-                             ",\n  \"signature\": \"${sig.decodeToString()}.sig.ed25519\"\n}" )
+        return (estr.slice(0..(estr.lastIndex - 2)) +
+                ",\n  \"signature\": \"${sig.decodeToString()}.sig.ed25519\"\n}")
     }
 }

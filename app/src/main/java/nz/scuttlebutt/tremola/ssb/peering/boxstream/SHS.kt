@@ -27,6 +27,7 @@ abstract class SHS( // state for SSB Secure Hand Shake
     var remoteKey: ByteArray? = null
     var completed = false
 
+    /** Hash-based Message Authentication Code */
     private fun createHMAC(key: ByteArray, message: ByteArray): ByteArray {
         val hmac = ByteArray(Auth.BYTES)
         lazySodium.cryptoAuth(hmac, message, message.size.toLong(), key)
@@ -34,10 +35,15 @@ abstract class SHS( // state for SSB Secure Hand Shake
     }
 
     fun mkHelloMessage(): ByteArray {
+        // Create Hash-based Message Authentication Code
         val hmac = createHMAC(networkIdentifier, localEphemeralKeyPair.publicKey.asBytes)
         return hmac + localEphemeralKeyPair.publicKey.asBytes
     }
 
+    /**
+     * Asserts that the expected and received Message Authentication Code are equals.
+     * If true, compute the shared secrets.
+     */
     fun isValidHello(message: ByteArray): Boolean {
         if (message.size != 64)
             return false

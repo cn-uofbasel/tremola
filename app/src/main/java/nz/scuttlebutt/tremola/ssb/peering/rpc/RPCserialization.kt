@@ -2,13 +2,9 @@ package nz.scuttlebutt.tremola.ssb.peering.rpc
 
 import android.util.Log
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toByteArray
-import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toHex
-import kotlin.experimental.or
-
-import java.lang.RuntimeException
-import kotlin.experimental.and
-
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toInt32
+import kotlin.experimental.and
+import kotlin.experimental.or
 
 class RPCserialization {
     companion object {
@@ -30,7 +26,7 @@ class RPCserialization {
                 Log.e("EXCEPTION: ", "Wrong header size: ${header.size}")
                 throw RuntimeException("Header wrong size.")
             }
-            return header.copyOfRange(1,5).toInt32()
+            return header.copyOfRange(1, 5).toInt32()
         }
 
         /**

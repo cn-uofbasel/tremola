@@ -11,6 +11,10 @@ import nz.scuttlebutt.tremola.ssb.peering.boxstream.SHSClient
 import nz.scuttlebutt.tremola.utils.Constants
 import java.net.Socket
 
+/**
+ * Initiate a connection (handshake) with a peer
+ * Only called for a peer once. RCPResponder will be called for the next connections
+ */
 class RpcInitiator(
     val tremolaState: TremolaState,
     val remoteKey: ByteArray,
@@ -36,10 +40,10 @@ class RpcInitiator(
         try {
             Socket(host, port).run {
                 socket = this
-                ostr = this.getOutputStream() // source = source().buffer()
-                istr = this.getInputStream() // sink = sink().buffer()
+                outstr = this.getOutputStream() // source = source().buffer()
+                instr = this.getInputStream() // sink = sink().buffer()
             }
-            boxStream = (shs!! as SHSClient).performHandshake(istr!!, ostr!!)
+            boxStream = (shs!! as SHSClient).performHandshake(instr!!, outstr!!)
             Log.d("initiatePeering", "worked for ${peerFid}")
             peerMark = "net:${socket!!.remoteSocketAddress.toString().substring(1)}~shs:"
             peerMark += peerFid!!.substring(1, peerFid!!.length - 8)
@@ -69,8 +73,12 @@ class RpcInitiator(
                 rpcService!!.endStream(myRequestCount)
                 close()
                 // if everything came so far we assume that the pub redeemed the invite code
-                tremolaState.contactDAO.insertContact(Contact(peerFid!!, null, true,
-                                                null, 0, 0, null))
+                tremolaState.contactDAO.insertContact(
+                    Contact(
+                        peerFid!!, null, true,
+                        null, 0, 0, null
+                    )
+                )
                 tremolaState.pubDAO.insert(Pub(peerFid!!, host, port))
             }
             Log.d("Initiator", "ended")

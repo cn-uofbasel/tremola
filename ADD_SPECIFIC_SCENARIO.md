@@ -12,6 +12,11 @@ The whole tutorial is long, but the first part describes the basics to give you 
 
 If not otherwise specified, the files are under the folder app/src/main/assets/web
 
+### Note
+
+This tutorial let you modify mostly instances (like arrays and lists), but make sure to look in the code how these are
+used, to get a good understanding of how the code works.
+
 ## Step 1: add HTML element
 
 Go to the file tremola.html. There is a `<div>` element inside the `<body>` element. Here, you can add a new element.

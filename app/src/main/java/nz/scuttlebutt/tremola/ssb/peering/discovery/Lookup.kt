@@ -6,7 +6,6 @@ import android.util.Log
 import android.widget.Toast
 import nz.scuttlebutt.tremola.MainActivity
 import nz.scuttlebutt.tremola.ssb.TremolaState
-import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.signDetached
 import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.verifySignDetached
 import nz.scuttlebutt.tremola.ssb.core.SSBid
 import nz.scuttlebutt.tremola.ssb.db.entities.Contact
@@ -300,10 +299,7 @@ class Lookup(
             message.put("msa", multiServerAddress)
             message.put("queryId", queryId)
             if (signature == null) {
-                signature = signDetached(
-                    message.toString().toByteArray(StandardCharsets.UTF_8),
-                    ed25519KeyPair.signingKey!!
-                )
+                signature = ed25519KeyPair.sign(message.toString().toByteArray(StandardCharsets.UTF_8))
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 message.put("signature", Base64.getEncoder().encodeToString(signature))
@@ -396,10 +392,7 @@ class Lookup(
             reply.put("queryId", queryId)
             reply.put("friendId", ed25519KeyPair.toRef())
             reply.put("hop", hopCount)
-            val signature = signDetached(
-                reply.toString().toByteArray(StandardCharsets.UTF_8),
-                ed25519KeyPair.signingKey!!
-            )
+            val signature = ed25519KeyPair.sign(reply.toString().toByteArray(StandardCharsets.UTF_8))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 reply.put("signature", Base64.getEncoder().encodeToString(signature))
             }

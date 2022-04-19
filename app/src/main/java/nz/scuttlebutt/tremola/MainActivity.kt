@@ -24,7 +24,6 @@ import nz.scuttlebutt.tremola.utils.Constants
 import nz.scuttlebutt.tremola.utils.getBroadcastAddress
 import nz.scuttlebutt.tremola.utils.getLocalIpAddress
 import java.lang.Thread.sleep
-import java.net.BindException
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.ServerSocket
@@ -262,29 +261,20 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             Log.e("MKSOCKETS", ": ${e.localizedMessage}")
         }
-        try {
-            broadcast_socket = DatagramSocket(
-                Constants.SSB_IPV4_UDPPORT, // where to listen
-                InetAddress.getByName("0.0.0.0")
-            )
-            broadcast_socket!!.reuseAddress = true
-            broadcast_socket?.broadcast = true
-            Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
-        } catch (e: BindException) {
-            Log.e("MKSOCKETS", ": broadcast ${e.localizedMessage}")
-        }
-        try {
-            lookup_socket = DatagramSocket(
-                Constants.LOOKUP_IPV4_UDPPORT, // where to listen
-                InetAddress.getByName("0.0.0.0")
-            )
-            lookup_socket!!.reuseAddress = true
-            lookup_socket?.broadcast = true
-            Log.d("new lookup sock", "${lookup_socket}, UDP port ${lookup_socket?.localPort}")
-        } catch (e: BindException) {
-            Log.e("MKSOCKETS", ": lookup ${e.localizedMessage}")
+        broadcast_socket = DatagramSocket(
+            Constants.SSB_IPV4_UDPPORT, // where to listen
+            InetAddress.getByName("0.0.0.0")
+        )
+        broadcast_socket?.broadcast = true
+        Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
 
-        }
+        lookup_socket = DatagramSocket(
+            Constants.LOOKUP_IPV4_UDPPORT, // where to listen
+            InetAddress.getByName("0.0.0.0")
+        )
+        lookup_socket?.broadcast = true
+        Log.d("new lookup sock", "${lookup_socket}, UDP port ${lookup_socket?.localPort}")
+
         val wifiManager = getSystemService(Context.WIFI_SERVICE) as WifiManager
         try {
             server_socket?.close()

@@ -2,15 +2,14 @@ package nz.scuttlebutt.tremola.ssb
 
 import android.util.Base64
 import android.util.Log
-import org.json.JSONArray
-import org.json.JSONObject
-
-import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.deRef
-import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
-import nz.scuttlebutt.tremola.utils.Json_PP
 import nz.scuttlebutt.tremola.ssb.core.Crypto
 import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.sha256
 import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
+import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.deRef
+import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
+import nz.scuttlebutt.tremola.utils.Json_PP
+import org.json.JSONArray
+import org.json.JSONObject
 
 class SSBmsgTypes(val tremolaState: TremolaState) {
     private val id = tremolaState.idStore.identity
@@ -20,7 +19,7 @@ class SSBmsgTypes(val tremolaState: TremolaState) {
         val prev = tremolaState.logDAO.getMostRecentEventFromLogId(me)
         if (prev == null)
             return id.signSSBEvent(null, 1, ctxt)
-        return id.signSSBEvent(prev.hid, prev.lsq+1, ctxt)
+        return id.signSSBEvent(prev.hid, prev.lsq + 1, ctxt)
     }
 
     fun mkPost(text: String, toWhom: List<String>): String {
@@ -44,7 +43,7 @@ class SSBmsgTypes(val tremolaState: TremolaState) {
         return mkWire(ctxt)
     }
 
-    fun mkFollow(target: String, following: Boolean=true): String {
+    fun mkFollow(target: String, following: Boolean = true): String {
         val contact = JSONObject()
         contact.put("type", "contact")
         contact.put("contact", target)
@@ -82,7 +81,7 @@ class SSBmsgTypes(val tremolaState: TremolaState) {
             val signature = vTree.getString("signature").removeSuffix(".sig.ed25519")
             val sig = Base64.decode(signature, Base64.NO_WRAP)
 
-            val msg2 = msg.slice(0 .. msg.indexOf(",\n  \"signature\":", msg.length-130)-1) + "\n}"
+            val msg2 = msg.slice(0..msg.indexOf(",\n  \"signature\":", msg.length - 130) - 1) + "\n}"
             // Log.d("FORMATTED2", msg2)
             if (!Crypto.verifySignDetached(sig, msg2.encodeToByteArray(), author.deRef())) {
                 Log.d("SIGNATURE2", "**invalid** for ${author}/${seq}")
@@ -104,12 +103,12 @@ class SSBmsgTypes(val tremolaState: TremolaState) {
             return LogEntry(
                 key, author,
                 seq, pre, vTree.getLong("timestamp"),
-                null,null,
+                null, null,
                 public, confid, raw
             )
 
         } catch (e: Exception) {
-            Log.d("MSG NOT PARSED", e.toString()  + " / " + json)
+            Log.d("MSG NOT PARSED", e.toString() + " / " + json)
             return null
         }
     }

@@ -35,22 +35,22 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
         Log.d("FrontendRequest", s)
         val args = s.split(" ")
         when (args[0]) {
-            "onBackPressed" -> {
+            "onBackPressed" -> { // When 'back' is pressed, will close app
                 (act as MainActivity)._onBackPressed()
             }
-            "ready" -> {
+            "ready" -> { // Initialisation, send localID to frontend
                 eval("b2f_initialize(\"${tremolaState.idStore.identity.toRef()}\")")
             }
             "reset" -> { // UI reset
                 // erase DB content
                 eval("b2f_initialize(\"${tremolaState.idStore.identity.toRef()}\")")
             }
-            "restream" -> {
-                for (e in tremolaState.logDAO.getAllAsList())
-                    if (e.pri != null) // only private chat msgs
-                        sendEventToFrontend(e)
+            "restream" -> { // Resend all the log of private messages
+                for (logEntry in tremolaState.logDAO.getAllAsList())
+                    if (logEntry.pri != null) // only private chat msgs
+                        sendEventToFrontend(logEntry)
             }
-            "qrscan.init" -> {
+            "qrscan.init" -> { // start scanning the qr code (open the camera)
                 val intentIntegrator = IntentIntegrator(act)
                 intentIntegrator.setBeepEnabled(false)
                 intentIntegrator.setCameraId(0)
@@ -59,7 +59,7 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                 intentIntegrator.initiateScan()
                 return
             }
-            "secret:" -> {
+            "secret:" -> { // import a new ID (is not used)
                 if (importIdentity(args[1])) {
                     tremolaState.logDAO.wipe()
                     tremolaState.contactDAO.wipe()
@@ -68,7 +68,7 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                 }
                 return
             }
-            "exportSecret" -> {
+            "exportSecret" -> { // Show the secret key (both as string and qr code)
                 val json = tremolaState.idStore.identity.toExportString()!!
                 eval("b2f_showSecret('${json}');")
                 val clipboard = tremolaState.context.getSystemService(ClipboardManager::class.java)
@@ -79,11 +79,11 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                     Toast.LENGTH_LONG
                 ).show()
             }
-            "sync" -> {
+            "sync" -> { // add a peer to a pub (never used)
                 addPub(args[1])
                 return
             }
-            "wipe" -> {
+            "wipe" -> { // Delete all data about the peer, included ID (not revertible)
                 tremolaState.logDAO.wipe()
                 tremolaState.contactDAO.wipe()
                 tremolaState.pubDAO.wipe()
@@ -92,7 +92,11 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                 // FIXME: should kill all active connections, or better then the app
                 act.finishAffinity()
             }
-            "add:contact" -> { // ID and alias
+            "add:contact" -> { // Add a new contact
+                // Only store in database and advertise it to connected peers via SSB event.
+                // The peering with the new contact is automatically done by /ssb/peering/PeeringPool::add,
+                // Which is called in /ssb/TremolaState::init by a fixed rate scheduled procedure.
+                // ID and alias
                 tremolaState.addContact(
                     args[1],
                     Base64.decode(args[2], Base64.NO_WRAP).decodeToString()
@@ -108,7 +112,8 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                 }
                 return
             }
-            "priv:post" -> { // atob(text) rcp1 rcp2 ...
+            "priv:post" -> { // Post a private chat
+                // atob(text) recipient1 recipient2 ...
                 val rawStr = tremolaState.msgTypes.mkPost(
                     Base64.decode(args[1], Base64.NO_WRAP).decodeToString(),
                     args.slice(2..args.lastIndex)
@@ -120,22 +125,23 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                 evnt?.let { rx_event(it) } // persist it, propagate horizontally and also up
                 return
             }
-            "priv:hash" -> {
+            "priv:hash" -> { // Compute the shortname from the public key
+                // The second arg is the name of the method to call with the result of the hash
                 val shortname = id2(args[1])
                 Log.e("SHORT", shortname + ": " + args[1] + " and " + args[2])
                 eval("${args[2]}('" + shortname + "', '" + args[1] + "')")
             }
-            "invite:redeem" -> {
+            "invite:redeem" -> { // Join a pub with invite code
                 try {
-                    val i = args[1].split("~")
-                    val h = i[0].split(":")
-                    val remoteKey = Base64.decode(h[2].slice(1..-8), Base64.NO_WRAP)
-                    val seed = Base64.decode(i[1], Base64.NO_WRAP)
+                    val invitation = args[1].split("~") //[pub_mark, invite_code]
+                    val id = invitation[0].split(":") // [IP_address, port, pub_SSB_ID]
+                    val remoteKey = Base64.decode(id[2].slice(1..-8), Base64.NO_WRAP)
+                    val seed = Base64.decode(invitation[1], Base64.NO_WRAP) // invite_code
                     val rpcStream = RpcInitiator(tremolaState, remoteKey)
                     val ex = Executors.newSingleThreadExecutor() // one thread per peer
                     ex?.execute {
                         rpcStream.defineServices(RpcServices(tremolaState))
-                        rpcStream.startPeering(h[0], h[1].toInt(), seed)
+                        rpcStream.startPeering(id[0], id[1].toInt(), seed)
                     }
                     Toast.makeText(
                         act, "Pub is being contacted ..",
@@ -148,7 +154,7 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                     ).show()
                 }
             }
-            "look_up" -> {
+            "look_up" -> { // Start a lookup
                 val shortname = args[1]
                 try {
                     getBroadcastAddress(act).hostAddress
@@ -195,7 +201,7 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
     }
 
     /**
-     * FIXME: Only called (but commented out) from tremola.js::menu_import_id,
+     * Only called (but commented out) from tremola.js::menu_import_id,
      * which is never called (Menu item leading to it is commented out)
      */
     private fun importIdentity(secret: String): Boolean {

@@ -18,8 +18,7 @@ data class RpcHistoryTrain(val reqNr: Int,
                            val envelope: Boolean)
 */
 
-class RpcServices(val tremolaState: TremolaState)
-{
+class RpcServices(val tremolaState: TremolaState) {
     // val trains: MutableList<RpcHistoryTrain> = arrayListOf()
     var rpcLoop: RpcLoop? = null // will be set by the stream using this obj
     var ebtRpcNr: Int = 0 // 0=desactivated, positive=we initiated, negative=we responded
@@ -71,11 +70,11 @@ class RpcServices(val tremolaState: TremolaState)
                 }]
             }
         */
-        val request:JSONObject?
+        val request: JSONObject?
         Log.d("handleRequest", "nr=${rpcNr}, body=${bodyString}")
         try {
             request = JSONObject(bodyString) // sonParser.parseString(bodyString).asJsonObject
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             Log.d("RPC parsing problem", bodyString + " / " + e.toString())
             return
         }
@@ -149,7 +148,8 @@ class RpcServices(val tremolaState: TremolaState)
                         respondWithEmpty(rpcNr)
                     }
                 }
-            } else -> {
+            }
+            else -> {
                 endStream(rpcNr)
             }
         }
@@ -249,7 +249,7 @@ class RpcServices(val tremolaState: TremolaState)
 
     fun sendEBTnote(rpcNr: Int, fid: String, seqNr: Int) {
         val note = JSONObject()
-        note.put(fid, seqNr*2) // subscribe
+        note.put(fid, seqNr * 2) // subscribe
         val body = note.toString().encodeToByteArray()
         val rpcMessage = RPCMessage(
             true,
