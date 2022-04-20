@@ -17,6 +17,19 @@ If not otherwise specified, the files are under the folder app/src/main/assets/w
 This tutorial let you modify mostly instances (like arrays and lists), but make sure to look in the code how these are
 used, to get a good understanding of how the code works.
 
+## Installing the software
+
+To run this app, you need to install the android SDK. You can either
+install [Android studio](https://developer.android.com/studio#downloads) or use Intellij directly, but you will need to
+install the android SDK.
+
+To run the application, you can either install a virtual device with the SDK manager or use a physical android phone
+(you need to [enable developer options and USB debugging](https://developer.android.com/studio/debug/dev-options#enable)
+for that).
+
+It works with Intellij Community too (the free version), but javascript plugins are only for the Ultimate edition (you
+can have it for free with your university account).
+
 ## Step 1: add HTML element
 
 Go to the file tremola.html. There is a `<div>` element inside the `<body>` element. Here, you can add a new element.
