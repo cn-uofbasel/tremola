@@ -46,8 +46,8 @@ var scenarioMenu = {
                 ['Dump', 'menu_dump'],
                 ['Reset', 'menu_reset']]
 */
-  'posts'    : [['Take picture', 'menu_take_picture'],
-                ['Pick image', 'menu_pick_image'],
+  'posts'    : [/* ['Take picture', 'menu_take_picture'],
+                ['Pick image', 'menu_pick_image'], */
                 ['Rename this chat', 'menu_edit_convname'],
                 ['(un)Forget', 'menu_forget_conv'],
                 ['Settings', 'menu_settings'],
@@ -137,6 +137,14 @@ function btnBridge(e) {
     document.getElementById("menu").innerHTML = m;
     return;
   }
+  if (e == 'btn:attach') {
+      if (scenarioMenu[curr_scenario].length == 0)
+        return;
+      document.getElementById("attach-menu").style.display = 'initial';
+      document.getElementById("overlay-trans").style.display = 'initial';
+      return;
+    }
+
   // if (typeof Android != "undefined") { Android.onFrontendRequest(e); }
 }
 
@@ -171,6 +179,9 @@ function closeOverlay(){
   document.getElementById('edit-overlay').style.display = 'none';
   document.getElementById('new_contact-overlay').style.display = 'none';
   document.getElementById('old_contact-overlay').style.display = 'none';
+  document.getElementById('attach-menu').style.display = 'none';
+  document.getElementById('div:modal_img').style.display = 'none';
+
   overlayIsActive = false;
   if (curr_img_candidate != null) {
     backend('del:blob ' + curr_img_candidate);
@@ -298,4 +309,31 @@ function qr_scan_confirmed() {
   closeOverlay();
 }
 
+function modal_img(img) {
+  var modal = document.getElementById('div:modal_img');
+  // Get the image and insert it inside the modal - use its "alt" text as a caption
+  // var img = document.getElementById('myImg');
+  var modalImg = document.getElementById("modal_img");
+  // var captionText = document.getElementById("caption");
+  /*
+  img.onclick = function() {
+    modal.style.display = "block";
+    modalImg.src = this.src;
+    // modalImg.alt = this.alt;
+    // captionText.innerHTML = this.alt;
+  }
+  */
+  modal.style.display = "block";
+  modalImg.src = img.data;
+  overlayIsActive = true;
+  // When the user clicks on <span> (x), close the modal
+  modal.onclick = function() {
+    modalImg.className += " out";
+    setTimeout(function() {
+       modal.style.display = "none";
+       modalImg.className = "modal-content";
+     }, 400);
+  }
+  overlayIsActive = true;
+}
 // ---

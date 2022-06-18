@@ -3,6 +3,7 @@ package nz.scuttlebutt.tremola.ssb.core
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
@@ -35,7 +36,7 @@ class BlobStore(val context: Context) {
     }
 
     fun fetch(ref: String): FileInputStream {
-        // Log.d("blobStore.fetch", "fname=${fname}")
+        // Log.d("blobStore.fetch", "fname=${ref}")
         val f = File(blobDir, ref2fname(ref))
         // Log.d("blobStore.fetch", "path=${f.absolutePath}")
         return FileInputStream(f)

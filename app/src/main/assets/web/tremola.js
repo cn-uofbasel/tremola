@@ -201,6 +201,9 @@ function new_text_post(s) {
 function new_image_post() {
   if (curr_img_candidate == null) { return; }
   var draft = "![](" + curr_img_candidate + ")\n";
+  var caption = document.getElementById('image-caption').value;
+  if (caption && caption.length > 0)
+    draft += caption;
   var recps = tremola.chats[curr_chat].members.join(' ')
   backend("priv:post " + btoa(draft) + " " + recps);
   curr_img_candidate = null;
@@ -218,8 +221,9 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
     box += "<font size=-1><i>" + fid2display(p["from"]) + "</i></font><br>";
   var txt = escapeHTML(p["body"]).replace(/\n/g, "<br>\n");
   var re = /!\[.*?\]\((.*?)\)/g;
-  txt = txt.replace(re, " &nbsp;<object type='image/jpeg' style='width: 95%; display: block; margin-left: auto; margin-right: auto; cursor: zoom-in;' data='http://appassets.androidplatform.net/blobs/$1'></object>&nbsp; ");
+  txt = txt.replace(re, " &nbsp;<object type='image/jpeg' style='width: 95%; display: block; margin-left: auto; margin-right: auto; cursor: zoom-in;' data='http://appassets.androidplatform.net/blobs/$1' onclick='modal_img(this)'></object>&nbsp; ");
   // txt = txt + " &nbsp;<object type='image/jpeg' width=95% data='http://appassets.androidplatform.net/blobs/25d444486ffb848ed0d4f1d15d9a165934a02403b66310bf5a56757fec170cd2.jpg'></object>&nbsp; (!)";
+  // console.log(txt);
   var d = new Date(p["when"]);
   d = d.toDateString() + ' ' + d.toTimeString().substring(0,5);
   box += txt + "<div align=right style='font-size: x-small;'><i>";
@@ -671,11 +675,13 @@ function b2f_showSecret(json){
 }
 
 function b2f_new_image_blob(ref) {
-  console.log("new image: ", ref)
+  console.log("new image: ", ref);
   curr_img_candidate = ref;
+  ref = ref.replace(new RegExp('/'), "_");
   ref = "http://appassets.androidplatform.net/blobs/" + ref;
-  ref = "<object type='image/jpeg' data='" + ref + "' style='cursor: zoom-in; width: 95%; text-align: center; position: absolute;'></object>"
+  ref = "<object type='image/jpeg' data='" + ref + "' style='width: 100%; height: 100%; object-fit: scale-down;'></object>"
   document.getElementById('image-preview').innerHTML = ref
+  document.getElementById('image-caption').value = '';
   var s = document.getElementById('image-overlay').style;
   s.display = 'initial';
   s.height = '80%'; // 0.8 * docHeight;

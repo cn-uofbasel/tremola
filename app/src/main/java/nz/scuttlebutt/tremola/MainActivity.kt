@@ -44,6 +44,7 @@ class MainActivity : Activity() {
     var wifiManager: WifiManager? = null
     private var mlock: WifiManager.MulticastLock? = null
     lateinit var currentPhotoPath: String
+    private var old_ip_addr: Int = 0 // wifiManager?.connectionInfo!!.ipAddress
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -232,8 +233,22 @@ class MainActivity : Activity() {
         }
         Log.d("new bcast sock", "${broadcast_socket}, UDP port ${broadcast_socket?.localPort}")
         // val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        try { server_socket?.close() } catch (e: Exception) {}
-        server_socket =  ServerSocket(Constants.SSB_IPV4_TCPPORT)
-        Log.d("SERVER TCP addr", "${Formatter.formatIpAddress(wifiManager?.connectionInfo!!.ipAddress)}:${server_socket!!.localPort}")
+        if (old_ip_addr == 0 || old_ip_addr != wifiManager?.connectionInfo!!.ipAddress) {
+            try {
+                server_socket?.close()
+            } catch (e: Exception) {
+            }
+            server_socket = ServerSocket(Constants.SSB_IPV4_TCPPORT)
+            old_ip_addr = wifiManager?.connectionInfo!!.ipAddress
+            Log.d(
+                "SERVER TCP addr is new",
+                "${Formatter.formatIpAddress(wifiManager?.connectionInfo!!.ipAddress)}:${server_socket!!.localPort}"
+            )
+        } else {
+            Log.d(
+                "SERVER TCP addr did not change:",
+                "${Formatter.formatIpAddress(wifiManager?.connectionInfo!!.ipAddress)}:${server_socket!!.localPort}"
+            )
+        }
     }
 }

@@ -34,6 +34,9 @@
   .light {
     background-color: #ebf4fa; // var(--light);
   }
+  .green {
+    background-color: #9dbb68; // var(--lightGreen);
+  }
   .gray {
     background-color: var(--gray);
   }
@@ -193,6 +196,38 @@ chat_item_div {
   width: 100%;
   font-size: medium;
   background-color: white;
+}
+
+.attach-menu-item-button {
+  border: none;
+  text-align: left;
+  vertical-align: top;
+  height: 3em;
+  width: 100%;
+  font-size: medium;
+  background-color: white;
+}
+
+.attach-menu {
+    border: none;
+    text-align: center;
+    vertical-align: bottom;
+    height: 3em;
+    width: 100%;
+    font-size: medium;
+    background-color: white;
+}
+
+.attach-menu-overlay {
+  display: none;
+  position: absolute;
+  right: 10px;
+  bottom: 70px;
+  background: #fff;
+  padding: 0.5em;
+  z-index: 1001; /* high z-index */
+  border-radius: 5px;
+  box-shadow: 0 0 25px rgba(0,0,0,0.9);
 }
 
 .settings {

@@ -122,9 +122,12 @@ class WebAppInterface(val act: Activity, val tremolaState: TremolaState, val web
                         Toast.LENGTH_SHORT).show()
                     return
                 }
-                val intent = Intent(Intent.ACTION_PICK)
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT); // , MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
                 intent.type = "image/*"
                 act.startActivityForResult(intent, 1001)
+                // Intent i = new Intent(
+                //	Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                //	startActivityForResult(i, RESULT_LOAD_IMAGE);
             }
             "get:camera" -> {
                 if (checkSelfPermission(act, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
