@@ -310,30 +310,13 @@ function qr_scan_confirmed() {
 }
 
 function modal_img(img) {
-  var modal = document.getElementById('div:modal_img');
-  // Get the image and insert it inside the modal - use its "alt" text as a caption
-  // var img = document.getElementById('myImg');
   var modalImg = document.getElementById("modal_img");
-  // var captionText = document.getElementById("caption");
-  /*
-  img.onclick = function() {
-    modal.style.display = "block";
-    modalImg.src = this.src;
-    // modalImg.alt = this.alt;
-    // captionText.innerHTML = this.alt;
-  }
-  */
-  modal.style.display = "block";
   modalImg.src = img.data;
+  var modal = document.getElementById('div:modal_img');
+  modal.style.display = "block";
   overlayIsActive = true;
-  // When the user clicks on <span> (x), close the modal
-  modal.onclick = function() {
-    modalImg.className += " out";
-    setTimeout(function() {
-       modal.style.display = "none";
-       modalImg.className = "modal-content";
-     }, 400);
-  }
-  overlayIsActive = true;
+  let pz = new PinchZoom(modalImg,
+    {onDoubleTap: function(){closeOverlay();}, maxZoom: 8}
+  );
 }
 // ---

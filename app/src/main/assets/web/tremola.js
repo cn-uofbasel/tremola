@@ -221,7 +221,7 @@ function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group 
     box += "<font size=-1><i>" + fid2display(p["from"]) + "</i></font><br>";
   var txt = escapeHTML(p["body"]).replace(/\n/g, "<br>\n");
   var re = /!\[.*?\]\((.*?)\)/g;
-  txt = txt.replace(re, " &nbsp;<object type='image/jpeg' style='width: 95%; display: block; margin-left: auto; margin-right: auto; cursor: zoom-in;' data='http://appassets.androidplatform.net/blobs/$1' onclick='modal_img(this)'></object>&nbsp; ");
+  txt = txt.replace(re, " &nbsp;<object type='image/jpeg' style='width: 95%; display: block; margin-left: auto; margin-right: auto; cursor: zoom-in;' data='http://appassets.androidplatform.net/blobs/$1' ondblclick='modal_img(this)'></object>&nbsp; ");
   // txt = txt + " &nbsp;<object type='image/jpeg' width=95% data='http://appassets.androidplatform.net/blobs/25d444486ffb848ed0d4f1d15d9a165934a02403b66310bf5a56757fec170cd2.jpg'></object>&nbsp; (!)";
   // console.log(txt);
   var d = new Date(p["when"]);
