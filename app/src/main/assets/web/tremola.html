@@ -18,6 +18,7 @@
           <button>item3</button> -->
     </div>
 
+    <!-- We added new Titles to the header of every new scenario -->
     <div id='hdr' style="height: 45px;margin: 3px; width: calc(100% - 6px);">
         <div style="display:flex; flex-direction: row; justify-content: center; align-items: center;">
             <div id="div:qr" style="align: left;">
@@ -33,7 +34,20 @@
             <div id='tremolaTitle' align=center
                  style="padding-top: 2pt; width: 100%;font-family: Helvetica;font-weight: 900;"><font size=+2
                                                                                                       color=#e85132>T R
-                E M O L A<!-- &#x26F0; --></font></div>
+                E M O L A<!-- &#x26F0; --></font>
+            </div>
+            <!-- This is the title that appears on the header of the 'newMeetings' scenario -->
+            <div id='newCoordTitle' align=center style="padding-top: 2pt; display: none;
+                 width: 100%; font-family: Helvetica;font-weight: 900;"><font size=+ 2 color=#e85132>New meeting coordination<!-- &#x26F0; --></font>
+            </div>
+            <!-- This is the title that appears on the header of the 'openMeetings' scenario -->
+            <div id='openCoordTitle' align=center style="padding-top: 2pt; display: none;
+                 width: 100%; font-family: Helvetica;font-weight: 900;"><font size=+ 2 color=#e85132>Opened meetings<!-- &#x26F0; --></font>
+            </div>
+            <!-- This is the title that appears on the header of the 'closedMeetings' scenario -->
+            <div id='closedCoordTitle' align=center style="padding-top: 2pt; display: none;
+                 width: 100%; font-family: Helvetica;font-weight: 900;"><font size=+ 2 color=#e85132>Meetings<!-- &#x26F0; --></font>
+            </div>
             <div id='conversationTitle'
                  style="display: none; padding-left: 5px; padding-right: 5px; padding-top: 2px; color: #e85132; font-size: small; overflow: hidden; width: 100%;">
                 ABC
@@ -43,8 +57,184 @@
                         style="vertical-align: top; background-color: transparent; padding-top: 3pt;"><font size=+1>&nbsp;<strong>&#9776;</strong>&nbsp;</font>
                 </button>
             </div>
+
         </div>
     </div>
+
+    <!-- This is the 'closedMeetings' scenario -->
+    <div id='closedCoord' style="height: calc(100% - 50px); overflow: scroll; width: calc(100%); align: center;">
+
+        <!-- This is the list that will contain all existing meetings -->
+        <div id='lst:meetings' class=w100 style='overflow: hidden'></div>
+
+    </div>
+
+    <!-- This is the 'newMeetings' scenario -->
+    <div id='newCoord' style="height: calc(100% - 118px); overflow: scroll; width: calc(100% - 15px); align: center;">
+        <p>Title</p>
+        <textarea id='title' placeholder='Give your meeting a name' rows=2 cols=5" style="margin-left: 15px; width: calc(100% - 15px);font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 1em; font-weight: bold;"></textarea><br>
+        <hr style="border-width:1px;border-color:black;margin-left: 15px;">
+        <p><br></p>
+        <p>Date suggestions (Date & Time)</p>
+
+        <!-- These are the date and time fields. They can be filled by the user-->
+        <table align=center>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 1"  id="date1" style="margin-left: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From"  id="from1" style="margin-left: 30px; width:75px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until"  id="to1" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 2" id="date2" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From"  id="from2" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to2" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 4" id="date3" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From" id="from3" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to3" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 5" id="date4" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From" id="from4" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to4" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 6"  id="date5" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From" id="from5" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to5" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 7" id="date6" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From" id="from6" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to6" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 2" id="date7" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From" id="from7" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to7" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 8" id="date8" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From" id="from8" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to8" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 9" id="date9" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From" id="from9" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to9" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><input type="date" placeholder="Date 10" id="date10" style="margin-left: 15px; margin-up: 15px; width:100px;"></td>
+                <td><input type="time" placeholder="From" id="from10" style="width:75px; margin-left: 30px; margin-up: 15px;" min="00:00" max="24:00" required></td>
+                <td><input type="time" placeholder="Until" id="to10" style=" margin-left: 5px; width:75px;" min="00:00" max="24:00" required></td>
+            </tr>
+        </table>
+
+        <!-- By pressing this button the dates are inserted into a table and sent to the group members -->
+        <div>
+            <button id='btn:createCoor' class="w100 flat active buttontext" onclick="create_new_meeting();"
+                    style="background-image: url('img/checked.svg'); display: none; background-color: light-blue; height: 35px; width: calc(100% - 15px); margin-left: 15px; margin-top: 15px;
+                    padding-top: 10pt;"><!--<font size=+1>&nbsp;<strong>&#9776;</strong>&nbsp;</font>-->
+            </button>
+
+        </div>
+    </div>
+
+    <!-- This is the 'openMeetings' scenario -->
+    <div id='readOnlyCoord' style="height: calc(100%); overflow: scroll; width: calc(100% - 15px); align: center;">
+        <p>Title</p>
+        <textarea id='roTitle' readonly="readonly" rows=2 cols=5" style="margin-left: 15px; width: calc(100% - 15px); font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 1em; font-weight: bold;"></textarea><br>
+        <hr style="border-width:1px;border-color:black;margin-left: 15px;">
+        <p><br></p>
+        <p>Date suggestions (Date & Time)</p>
+
+        <!-- These text fields contain the dates and time from each meeting. The counters show how many votes each option has.
+        The checkboxes show which options are/were selected-->
+        <table align=center>
+            <tr style="height:40px">
+                <td><p id="voteCounter1">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate1" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly"  id="roFrom1" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" id="voteButton1" onclick="meetButtons" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter2">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate2" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom2" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton2" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter3">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate3" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom3" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton3" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter4">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate4" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom4" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton4" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter5">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate5" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom5" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton5" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter6">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate6" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom6" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton6" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter7">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate7" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom7" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton7" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter8">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate8" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom8" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton8" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter9">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate9" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom9" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton9" required></td>
+            </tr>
+            <tr style="height:40px">
+                <td><p id="voteCounter10">✓: 0</p></td>
+                <td><input type="text" readonly="readonly" id="roDate10" style="margin-left: 15px; width:80px;"></td>
+                <td><input type="text" readonly="readonly" id="roFrom10" style="margin-left: 15px; width:90px;" required></td>
+                <td><input type="Checkbox" onclick="meetButtons" id="voteButton10" required></td>
+            </tr>
+        </table>
+
+        <div>
+            <!-- By pressing this button the votes are sent to the group members -->
+            <button id='btn:voteCoor' class="w100 flat active buttontext"
+                    style=" display: none; background-color: light-blue; height: 35px; width: calc(100% - 15px); margin-left: 15px; margin-top: 15px;
+                    padding-top: 10pt;" onclick="voteCoor();">VOTE
+            </button>
+
+            <!-- By pressing this button the meeting can be completed/terminated -->
+            <button id='btn:completeCoor' class="w100 flat active buttontext"
+                    style=" display: none; background-color: light-blue; height: 35px; width: calc(100% - 15px); margin-left: 15px; margin-top: 10px;
+                    padding-top: 10pt;" onclick="completeCoor();">COMPLETE MEETING
+            </button>
+
+            <!-- By pressing this button the meeting is un/forgotten-->
+            <button id='btn:forgetCoor' class="w100 flat active buttontext"
+                    style=" display: none; background-color: light-blue; height: 35px; width: calc(100% - 15px); margin-left: 15px; margin-top: 10px;
+                    padding-top: 10pt;" onclick="forgetBtn();">(UN)FORGET MEETING
+            </button>
+        </div>
+    </div>
+
 
     <div id='core' style="height: calc(100% - 118px); overflow: scroll; width: 100%;">
 

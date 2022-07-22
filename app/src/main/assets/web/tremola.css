@@ -7,6 +7,7 @@
     --gray: #d0d0d0;
     --red: #e85132;
     --lightGreen: #bddb88;
+    --blue: #40bdd6;
 }
 
 html, body {
@@ -19,6 +20,11 @@ html, body {
 
 table {
     border-spacing: 0px;
+}
+
+p {
+    padding: 15px;
+    display: inline
 }
 
 button {
@@ -43,6 +49,14 @@ button {
 
 .gray {
     background-color: var(--gray);
+}
+
+.lightGreen {
+    background-color: var(--lightGreen);
+}
+
+.blue {
+    background-color: var(--blue);
 }
 
 .flat {

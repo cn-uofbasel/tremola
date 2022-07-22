@@ -170,6 +170,34 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
                     Log.e("BROADCAST", e.stackTraceToString())
                 }
             }
+            "meet:dates" -> { // meeting dates
+                // atob(text) recipient1 recipient2 ...
+                val rawStr = tremolaState.msgTypes.mkMeetPost(
+                    Base64.decode(args[1], Base64.NO_WRAP).decodeToString(),
+                    args.slice(2..args.lastIndex)
+                )
+                val evnt = tremolaState.msgTypes.jsonToLogEntry(
+                    rawStr,
+                    rawStr.encodeToByteArray()
+                )
+                evnt?.let { rx_event(it) } // persist it, propagate horizontally and also up
+
+                return
+            }
+            "meet:vote" -> { // meeting votes
+                // atob(text) recipient1 recipient2 ...
+                val rawStr = tremolaState.msgTypes.mkMeetVotePost(
+                    Base64.decode(args[1], Base64.NO_WRAP).decodeToString(),
+                    args.slice(2..args.lastIndex)
+                )
+                val evnt = tremolaState.msgTypes.jsonToLogEntry(
+                    rawStr,
+                    rawStr.encodeToByteArray()
+                )
+                evnt?.let { rx_event(it) } // persist it, propagate horizontally and also up
+
+                return
+            }
             else -> {
                 Log.d("onFrontendRequest", "unknown")
             }
