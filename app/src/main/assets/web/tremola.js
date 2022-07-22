@@ -4,6 +4,7 @@
 
 var tremola;
 var curr_chat;
+var curr_poll;
 var qr;
 var myId;
 var localPeers = {}; // feedID ~ [isOnline, isConnected] - TF, TT, FT - FF means to remove this entry
@@ -14,8 +15,11 @@ var colors = ["#d9ceb2", "#99b2b7", "#e6cba5", "#ede3b4", "#8b9e9b", "#bd7578", 
     "#ffd573", "#c2a34f", "#fbb829", "#ffab03", "#7ab317", "#a0c55f", "#8ca315",
     "#5191c1", "#6493a7", "#bddb88"]
 
-var pubs = []
-
+var pubs = [];
+var bool = true;
+// Global variables used to distinguish meetings
+var isForgotten = true;
+var isCompleted = false;
 // --- menu callbacks
 
 /*
@@ -412,6 +416,7 @@ function new_conversation() {
     }
     if (recps.indexOf(myId) < 0)
         recps.push(myId);
+        launch_snackbar("You are not the leader, meetings will be unavailable!");
     if (recps.length > 7) {
         launch_snackbar("Too many recipients");
         return;
@@ -438,6 +443,8 @@ function new_conversation() {
     setScenario("chats")
     curr_chat = nm
     menu_edit_convname()
+    console.log(myId);
+    console.log(recps[0]);
 }
 
 function load_peer_list() {
@@ -569,7 +576,9 @@ function resetTremola() { // wipes browser-side content
         "contacts": {},
         "profile": {},
         "id": myId,
-        "settings": get_default_settings()
+        "settings": get_default_settings(),
+        "polls": {},
+        "current_poll": "NULL" // from prototype, technically not needed anymore
     }
     var n = recps2nm([myId])
     tremola.chats[n] = {
@@ -577,6 +586,7 @@ function resetTremola() { // wipes browser-side content
         "members": [myId], "touched": Date.now(), "lastRead": 0
     };
     tremola.contacts[myId] = {"alias": "me", "initial": "M", "color": "#bd7578", "forgotten": false};
+
     persist();
 }
 
@@ -623,10 +633,11 @@ function b2f_new_contact_lookup(target_short_name, new_contact_id) {
 }
 
 function b2f_new_event(e) { // incoming SSB log event: we get map with three entries
-    // console.log('hdr', JSON.stringify(e.header))
-    // console.log('pub', JSON.stringify(e.public))
-    // console.log('cfd', JSON.stringify(e.confid))
-    if (e.confid && e.confid.type === 'post') {
+//     console.log('hdr', JSON.stringify(e.header))
+//     console.log('pub', JSON.stringify(e.public))
+//     console.log('cfd', JSON.stringify(e.confid))
+    if (e.confid && e.confid.type === 'post') { // new post
+    //////////////////////////////////////////////////////////////////////////////////////////
         var i, conv_name = recps2nm(e.confid.recps);
         if (!(conv_name in tremola.chats)) { // create new conversation if needed
             tremola.chats[conv_name] = {
@@ -639,7 +650,6 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
             var id, r = e.confid.recps[i];
             if (!(r in tremola.contacts))
                 id2b32(r, 'b2f_new_event_back')
-
         }
         var ch = tremola.chats[conv_name];
         if (!(e.header.ref in ch.posts)) { // new post
@@ -658,6 +668,100 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
         // if (curr_scenario == "chats") // the updated conversation could bubble up
         load_chat_list();
         // console.log(JSON.stringify(tremola))
+    //////////////////////////////////////////////////////////////////////////////////////////
+    } else if (e.confid && e.confid.type === 'meet') { // new meeting
+        var me = recps2nm([myId]);
+        var conv_name = recps2nm(e.confid.recps);
+        var meeting = decodeMeetingMsg2(e.confid.text);
+        var meetID = meeting.meetID;
+        var creator = meeting.creator;
+        var touched = meeting.touched;
+
+        // for debugging and resetting poll database
+/*        if (bool) {
+            tremola.polls = {};
+            bool = false;
+        }*/
+
+        if (!(conv_name in tremola.polls)) {
+            tremola.polls[conv_name] = {};
+        }
+
+        if (!(meetID in tremola.polls[conv_name])) { // create new meeting poll
+            var members = e.confid.recps;
+            var member_votes = {};
+            for (var i = 0; i < members.length; i++) {
+                var m = recps2nm([members[i]]);
+                // first entry of array -> 999: no vote yet;
+                // otherwise: Date.now() (time of the vote)
+                // votes will be filled at indeces 1-10
+                member_votes[m] = [999]; // [touched, vote1, ..., vote10]
+            }
+
+            tremola.polls[conv_name][meetID] = { // poll database
+               "meetID": meeting.meetID, "alias": conv_name, "title": meeting.title,
+               "dates": meeting.dates, "votes": [0,0,0,0,0,0,0,0,0,0], "voteCounter": 0,
+               "forgotten": false, "finished": false, "creator": meeting.creator,
+               "members": e.confid.recps, "membervotes": member_votes,"touched": meeting.touched
+            };
+
+            tremola.current_poll = meetID;
+            curr_poll = meetID;
+        } else {
+            // poll exists already
+        }
+
+        if (me == creator) {
+            loadPoll();
+            loadVotes();
+            load_meeting_list();
+            setCheckmarks();
+        }
+        // updates various scenes for other group members should they
+        // be in it at the time of the update
+        if (me != creator && curr_scenario != 'openMeetings') {
+            loadPoll();
+            loadVotes();
+            load_meeting_list();
+            setCheckmarks();
+        }
+    } else if (e.confid && e.confid.type === 'vote') { // new votes, end signal etc
+    //////////////////////////////////////////////////////////////////////////////////////////
+        var conv_name = recps2nm(e.confid.recps);
+        if (e.confid.text.startsWith("1:")) { // individual vote from a group member
+            var msg = e.confid.text.substring(2);
+            var votes = decodeMeetingVoteMsg2(msg);
+            var meetID = votes[votes.length - 3];
+            var me = votes[votes.length - 2];
+            var touched = votes[votes.length - 1];
+            if (conv_name in tremola.polls && !tremola.polls[conv_name][meetID].finished) {
+                // check if voter already participated. 999 -> not voted yet
+                if (tremola.polls[conv_name][meetID].membervotes[me][0] == 999) { // redundant, checked locally as well
+                    tremola.polls[conv_name][meetID].membervotes[me][0] = touched;
+                    for (var i = 0; i < votes.length - 2; i++) {
+                        if (votes[i] == 1) {
+                            tremola.polls[conv_name][meetID].votes[i] += 1;
+                            tremola.polls[conv_name][meetID].membervotes[me].push(1);
+                        } else { tremola.polls[conv_name][meetID].membervotes[me].push(0); }
+                    }
+                    tremola.polls[conv_name][meetID].voteCounter += 1;
+                }
+                // every group member has voted, meeting poll will be set to finished
+                if (tremola.polls[conv_name][meetID].voteCounter == tremola.polls[conv_name][meetID].members.length) {
+                    tremola.polls[conv_name][meetID].finished = true;
+                }
+                loadVotes();
+            }
+        } else if (e.confid.text.startsWith("2:")) { // close poll
+            var msg = e.confid.text.substring(2);
+            var data = msg.split("%");
+            var chat = data[0];
+            var poll = data[1];
+            tremola.polls[chat][poll].finished = true;
+            load_meeting_list();
+        } else if (e.confid.text.startsWith("9:")) { // other use cases
+            // "otherUseCases();"
+        }
     }
     persist();
     must_redraw = true;
@@ -702,8 +806,316 @@ function b2f_initialize(id) {
     load_chat_list()
     load_contact_list()
 
+    if (tremola.hasOwnProperty('current_poll')) {
+        curr_poll = tremola.current_poll;
+    }
+
     closeOverlay();
     setScenario('chats');
 }
+
+    /**
+     * Indirectly but automatically calls any method in the frontend.
+     * Note that the args must be inside single quotes (') :
+     * eval("b2f_local_peer('" + arg + "', 'someText')")
+     * OR
+     * eval("b2f_local_peer('${arg}', 'someText')")
+     */
+
+// --- Meeting coordination
+
+/**
+* Creates a list of meetings in form of button items, sorted after creation date with
+* the most recent items on top.
+*/
+function load_meeting_list() {
+    var meetID;
+
+    // empty list
+    const container = document.getElementById('lst:meetings');
+    container.replaceChildren();
+
+    // pick meeting items which are to be loaded
+    var lop = [];
+    var i;
+    for (i in tremola.polls[curr_chat]) {
+        meetID = i;
+        if(!isForgotten && !isCompleted) {
+            lop.push(i); // active running meetings
+        } else if(isForgotten && !isCompleted) {
+            if(!tremola.polls[curr_chat][meetID].forgotten) {
+                lop.push(i); // hidden active running meetings
+            }
+        } else if(!isForgotten && isCompleted){
+            if(!tremola.polls[curr_chat][meetID].finished){
+                lop.push(i); // completed meetings
+            }
+        } else if(isForgotten && isCompleted){
+            if(!tremola.polls[curr_chat][meetID].finished && !tremola.polls[curr_chat][meetID].forgotten){
+                lop.push(i); // hidden completed meetings
+            }
+        }
+    }
+
+    // sort after date created (locally) and load on screen
+    lop.sort((a, b) => tremola.polls[curr_chat][b]["touched"] - tremola.polls[curr_chat][a]["touched"])
+    for (var p in lop) {
+            console.log("sort: after1: ", lop[p]);
+    }
+    lop.forEach((p) =>
+        load_meeting_item(p)
+    );
+}
+
+/**
+* Creates a button item and appends it to lst:meetings
+*/
+function load_meeting_item(meetID) {
+    var cl, item, row, btn_title, btn_string, m_data, bg;
+
+    btn_title = tremola.polls[curr_chat][meetID].title;
+    btn_string = "MeetID: " + meetID;
+    cl = document.getElementById('lst:meetings');
+    item = document.createElement('div');
+    item.style = "padding: 0px 5px 10px 5px; margin: 3px 3px 6px 3px;";
+
+    // The button has a different color based on its characteristics
+    if (tremola.polls[curr_chat][meetID].finished) {
+        bg = ' blue';                                     // Meeting is completed
+        if (tremola.polls[curr_chat][meetID].forgotten) {
+            bg = ' gray'
+        }
+    } else if (tremola.polls[curr_chat][meetID].forgotten) {
+        bg = ' gray'                                            // Meeting is forgotten
+    } else {
+        bg = ' lightGreen';                                     // Meeting is active
+    }
+
+    row = "<button class='chat_item_button w100" + bg + "' onclick='fill_fields(\"" + meetID + "\");' style=' overflow: hidden; position: relative;'>";
+    row += "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'>" + btn_title + "</div>";
+    row += "<div style='text-overflow: clip; overflow: ellipsis;'><font size=-2>" + btn_string + "</font></div></div>";
+    row +="</button>";
+    row += ""
+
+    // The button is added into item and item is appended into lst:meetings
+    item.innerHTML = row;
+    cl.append(item);
+}
+/**
+* Updates the checkmarks in the voting form screen to show the vote of the user if one was given already.
+* Depending on whether the meeting poll is complete those checkmarks get disabled.
+*/
+function setCheckmarks() {
+    var me = recps2nm([myId]);
+
+    for (var m in tremola.polls[curr_chat][curr_poll].membervotes) {
+        if (m == me) {
+            var votes = tremola.polls[curr_chat][curr_poll].membervotes[me];
+            if (votes[0] == 999) { // 999 -> not voted yet
+                for (var i = 1; i < 11; i++) {
+                    document.getElementById("voteButton" + i).checked = false;
+                    document.getElementById("voteButton" + i).disabled = false;
+                }
+            } else { // voted, display vote and disable checkmarks
+                for (var i = 1; i < 11; i++) {
+                    if (votes[i] == 1) {
+                        document.getElementById("voteButton" + i).checked = true;
+                    } else {
+                        document.getElementById("voteButton" + i).checked = false;
+                    }
+                    document.getElementById("voteButton" + i).disabled = true;
+                }
+            }
+        }
+    }
+    if (tremola.polls[curr_chat][curr_poll].finished) { // edge case, poll finished without vote
+        for (var i = 1; i < 11; i++) {
+            document.getElementById("voteButton" + i).disabled = true;
+        }
+    }
+}
+
+/**
+* This function is used to make sure that all the data fields in the 'openMeetings' scenario are
+* visible when needed
+*/
+function setVisible() {
+    for (var i = 1; i < 11; i++) {
+        document.getElementById("roDate" + i).style.display = '';
+        document.getElementById("roFrom" + i).style.display = '';
+        document.getElementById("voteButton" + i).style.display = '';
+        document.getElementById("voteCounter" + i).style.display = '';
+    }
+}
+
+/**
+* This function is used by the buttons in lst:meetings. It fills the data fields in the
+* 'openMeetings' scenario with the correct dates and times based on the given meetID
+*/
+function fill_fields(meetID) {
+    setVisible();       // make sure that all the fields are visible
+    curr_poll = meetID;
+    if (curr_chat in tremola.polls && curr_poll in tremola.polls[curr_chat]) {
+        var arrMeetings = tremola.polls[curr_chat][curr_poll].dates;
+
+        // Insert the title into the title field
+        document.getElementById("roTitle").value = arrMeetings[0][0];
+
+        // Go to each field and insert the correct data
+        for (var i = 1; i < arrMeetings.length; i++) {
+            if (arrMeetings[i][0] !== "NULL") {
+                document.getElementById("roDate" + i).value = arrMeetings[i][0];
+            } else {
+                document.getElementById("roDate" + i).value = "";
+                document.getElementById("roDate" + i).style.display = 'none';
+                document.getElementById("roFrom" + i).style.display = 'none';
+                document.getElementById("voteButton" + i).style.display = 'none';
+                document.getElementById("voteCounter" + i).style.display = 'none';
+            }
+            if (arrMeetings[i][1] !== "NULL" && arrMeetings[i][2] !== "NULL") {
+                document.getElementById("roFrom" + i).value = arrMeetings[i][1] + " - " + arrMeetings[i][2];
+            } else if (arrMeetings[i][1] !== "NULL") {
+                document.getElementById("roFrom" + i).value = arrMeetings[i][1];
+            } else if (arrMeetings[i][2] !== "NULL") {
+                document.getElementById("roFrom" + i).value = "            - " + arrMeetings[i][2];
+            } else {
+                document.getElementById("roFrom" + i).value = "";
+            }
+        }
+        var votes = tremola.polls[curr_chat][curr_poll].votes;
+                for (var i = 0; i < votes.length; i++) {
+                    var text = "✓: " + votes[i];
+                    document.getElementById("voteCounter" + (i+1)).innerHTML = "✓: " + votes[i];
+                }
+    }
+    setScenario('openMeetings');
+    document.getElementById("tremolaTitle").style.display = 'none';
+    setCheckmarks();
+    console.log("setCheck: fill: ", document.getElementById("voteButton1").disabled);
+    var me = recps2nm([myID]);
+    if (tremola.polls[curr_chat][curr_poll].creator !== me){
+        document.getElementById("btn:completeCoor").style.display = 'none';
+        document.getElementById("btn:forgetCoor").style.display = 'none';
+    }
+}
+
+/**
+* The encoded string sent from a user to the group members on creation of a meeting poll is:
+* "%<meeting_title>%<creator>%<meetID>%<touched>&date1%...%date10"
+*/
+function decodeMeetingMsg2(msg) {
+    var meeting = msg.split("%"); // [meeting_title, creator, meetID, touched, date1, ..., date10]
+
+    var arrDates = new Array(11);
+    for (var i = 0; i < arrDates.length; i++) {
+          arrDates[i] = new Array(3);
+    }
+    for (var i = 0; i < arrDates.length; i++) {
+        if (i == 0) { // first 3 arguments: meeting_title, me, meetID
+            arrDates[i][0] = meeting[i]; // title
+            arrDates[i][1] = meeting[i+1]; // id of poll creator
+            arrDates[i][2] = meeting[i+2]; // meetID
+        } else {
+            var date = meeting[i+3].split(","); // [date, startTime, endTime]
+            arrDates[i][0] = date[0];
+            arrDates[i][1] = date[1];
+            arrDates[i][2] = date[2];
+        }
+    }
+
+    var meetingData = {
+        "title": meeting[0], "creator": meeting[1], "meetID": meeting[2], "touched": meeting[3],
+        "dates": arrDates
+    }
+
+    return meetingData;
+}
+
+/**
+* The encoded string sent from a user to the group members on vote in a meeting poll is:
+* "%<meeting_title>%<touched>&voteDate1%...%voteDate10"
+*/
+function decodeMeetingVoteMsg2(msg) {
+    var args = msg.split("%"); // [meeting_title, touched, votes]
+    var meetID = args[0];
+    var me = args[1];
+    var touched = args[2];
+
+    var votes = args[3].split(",") // [vote1, ..., vote10]
+    votes.push(meetID);
+    votes.push(me);
+    votes.push(touched);
+
+    return votes;
+}
+
+// --- Deprecated functions
+
+// @deprecated
+/*function decodeMeetingMsg(msg) {
+    *//*console.log("decodeMeetingMsg:MSG ", msg);*//*
+    var meeting = msg.split("%"); //[meeting_title, meetID, date1, ..., date10]
+
+    *//*var arrMeetings: Array<Array<String>> = Array(10) {
+        Array(3) { "" } };*//*
+
+    *//* create 2d 10x3 array for title and dates *//*
+    var arrMeetings = new Array(11);
+    for (var i = 0; i < arrMeetings.length; i++) {
+      arrMeetings[i] = new Array(3);
+    }
+
+    *//* fill array with meeting data *//*
+    var meeting_title;
+    var meetID;
+    for (var i = 0; i < arrMeetings.length; i++) {
+        if (i == 0) { // first two arguments: meeting_title, meetID
+            arrMeetings[i][0] = meeting[i];
+            arrMeetings[i][1] = meeting[i+1];
+        } else {
+            var date = meeting[i+1].split(","); // [date, startTime, endTime]
+            arrMeetings[i][0] = date[0];
+            arrMeetings[i][1] = date[1];
+            arrMeetings[i][2] = date[2];
+        }
+    }
+
+    fillOutMeetingDates(arrMeetings);
+    *//* write meeting data into fields in open meetings (read-only) *//*
+    *//*document.getElementById("roTitle").value = "meeting_title";
+    document.getElementById("roTitle").value = meeting_title;
+    document.getElementById("roDate1").value = arrMeetings[1][0];
+    document.getElementById("roFrom1").value = arrMeetings[1][1] + " - " + arrMeetings[1][2];*//*
+
+}*/
+
+// @deprecated
+/*function decodeMeetingVoteMsg(msg) {
+    *//*console.log("decodeMeetingMsg:MSG vote ", msg);*//*
+    var args = msg.split("%"); //[meeting_title, votes]
+    var meetID = args[0];
+
+    *//*console.log("decodeMeetingMsg:MSG votes string::: ", args[1]);*//*
+    var votes = args[1].split(",") // [vote1, ..., vote10]
+    votes.push(meetID);
+    fillOutMeetingVotes(votes);
+    *//* write meeting data into fields in open meetings (read-only) *//*
+    *//*document.getElementById("roTitle").value = "meeting_title";
+    document.getElementById("roTitle").value = meeting_title;
+    document.getElementById("roDate1").value = arrMeetings[1][0];
+    document.getElementById("roFrom1").value = arrMeetings[1][1] + " - " + arrMeetings[1][2];*//*
+
+}*/
+
+/*
+* @deprecated
+function resetPoll() {
+    tremola.polls[conv_name] = {"": {
+        "alias": "NULL", "title": "NULL", "meetID": "NULL",
+        "dates": [[]],"votes": [], "voteCounter": 0,
+        "forgotten": false, "finished": false,
+        "members": [], "touched": Date.now()
+    }};
+}*/
 
 // --- eof
