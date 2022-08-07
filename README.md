@@ -3,7 +3,7 @@
 Tremola is a [Secure Scuttlebutt (SSB)](https://scuttlebutt.nz/)
 client for Android that only supports private chat.
 
-![Val Tremola](app/src/main/assets/web/img/map-1862.png)
+![Val Tremola](app/src/main/assets/web/img/map-1862.jpg)
 ![modern map of Tremola](doc/tremola-modern-map.png)
 
 Tremola aims at having the same functionality as other end-to-end encrypted
@@ -23,7 +23,7 @@ connectivity services, should you choose to use them.
 
 ## Easy Onboarding via QR codes
 
-Having a fully decenctralized messenger comes at a price: there is no
+Having a fully decentralized messenger comes at a price: there is no
 global user directory and you must know another person's cryptographic
 identity beforehand, which is also known as the onboarding problem:
 how can you contact a peer if the peer does not know that you want to
@@ -53,7 +53,7 @@ immediately test their channel via local WiFi.
 Tremola is a first step towards turning SSB into a true competitor
 to established end-to-end encrypted messengers. On this journey,
 Tremola currently serves as experimentation platform both for the
-apps's software architecture as well as the way SSB data is handled:
+app's software architecture as well as the way SSB data is handled:
 
 - The core of SSB, namely the replication protocol and wire format, is programmed in the Kotlin language while user interface aspects and rendering is delegated to Android's WebKit module and some JavaScript (instead of hardwiring also these aspects in Kotlin).
 
