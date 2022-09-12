@@ -12,16 +12,30 @@
       onload="backend('ready');">
 <div style="width: 100%; height: 100%; margin: 0px">
 
+    <!--
+    contains menu on the top right when visible
+    can call menu_new_conversation() in scenario chats, menu_new_contact() in scenario contacts,
+    menu_new_pub() and menu_invite() in scenario connex and menu_settings() and menu_about()
+    regardless of current scenario
+    -->
     <div id='menu' class='menu-overlay'>
         <!--  <button onclick="delete_chat_item();">Delete this chat</button><br>
           <button>item2</button><br>
           <button>item3</button> -->
     </div>
 
+    <!--
+    contains the header at the top:
+    the QR button, the title and the menu button when in one of the three main scenarios
+    the back button, the chat name and the menu button when in the posts scenario
+    can call showQR() when clicking on QR button, onBackPressed() when clicking on the back
+    button, btnBridge(this) when clicking on the menu button.
+    -->
     <div id='hdr' style="height: 45px;margin: 3px; width: calc(100% - 6px);">
         <div style="display:flex; flex-direction: row; justify-content: center; align-items: center;">
             <div id="div:qr" style="align: left;">
-                <button id='btn:qr' class="flat" onclick="showQR();" style="background-color: transparent;"><font
+                <button id='btn:qr' class="flat" onclick="showQR();"
+                        style="background-color: transparent;"><font
                         size=+2><strong>&nbsp;&#x2680;&nbsp;</strong></font></button>
             </div>
             <div id="div:back" style="display: none; padding-right: 10px;">
@@ -31,25 +45,34 @@
                     <!--font size=+2><strong>&nbsp;&#x276E;&nbsp;</strong></font --></button>
             </div>
             <div id='tremolaTitle' align=center
-                 style="padding-top: 2pt; width: 100%;font-family: Helvetica;font-weight: 900;"><font size=+2
-                                                                                                      color=#e85132>T R
-                E M O L A<!-- &#x26F0; --></font></div>
+                 style="padding-top: 2pt; width: 100%;font-family: Helvetica;font-weight: 900;">
+                <font size=+2 color=#e85132>T R E M O L A<!-- &#x26F0; --></font></div>
             <div id='conversationTitle'
                  style="display: none; padding-left: 5px; padding-right: 5px; padding-top: 2px; color: #e85132; font-size: small; overflow: hidden; width: 100%;">
                 ABC
             </div>
             <div>
                 <button id='btn:menu' class="flat neutral" onclick="btnBridge(this);"
-                        style="vertical-align: top; background-color: transparent; padding-top: 3pt;"><font size=+1>&nbsp;<strong>&#9776;</strong>&nbsp;</font>
+                        style="vertical-align: top; background-color: transparent; padding-top: 3pt;">
+                    <font size=+1>&nbsp;<strong>&#9776;</strong>&nbsp;</font>
                 </button>
             </div>
         </div>
     </div>
 
+    <!--
+    contains the current scenario: the chats list, the contact list, the connections list,
+    the posts list, the members list, the plus button, the various overlays, etc.
+    -->
     <div id='core' style="height: calc(100% - 118px); overflow: scroll; width: 100%;">
 
+        <!--
+        active when the leftmost footer button is pressed, contains the list of chats
+        can call load_chat("@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        -->
         <div id='lst:chats' class=w100 style='overflow: hidden'></div>
 
+        <!--active when a chat is selected, contains the list of exchanged messages-->
         <table id='lst:posts' style="width: 100%; display: none;">
             <colgroup>
                 <col span="1" style="width: 2%;"/>
@@ -64,37 +87,73 @@
                 <td align=center colspan=5>-- newest --
         </table>
 
+        <!--
+        active when the middle footer button is pressed, contains a list of your contacts
+        can call show_contact_details("@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.ed25519")
+        when you press on one of the contacts
+        -->
         <div id='lst:contacts' class=w100 style="display: none;margin-top: 6px;"></div>
 
+        <!--active when the rightmost footer button is pressed-->
         <div id='the:connex' style="display: none; margin: 5pt;"></div>
 
+        <!--
+        active when the creating a new conversation, contains a list of contacts which can be
+        selected
+        -->
         <div id='lst:members' style="display: none; margin: 3px;">
-            <div style="margin-top: 10pt;"><label><input type="checkbox" id="toggleSwitches1"
-                                                         style="margin-right: 10pt;">
-                <div class="contact_item_button light" style="display: inline-block;padding: 5pt;">Choice1<br>more text
-                </div>
-            </label>
+            <div style="margin-top: 10pt;">
+                <label>
+                    <input type="checkbox" id="toggleSwitches" style="margin-right: 10pt;">
+                    <div class="contact_item_button light"
+                         style="display: inline-block;padding: 5pt;">
+                        Choice1<br>more text
+                    </div>
+                </label>
             </div>
         </div>
 
+        <!--
+        contains the plus button on the bottom right
+        can call plus_button()
+        -->
         <div id="plus">
             <button class=float_button onclick="plus_button();">+</button>
         </div>
 
+        <!--
+        active when an overlay menu is out and the background is tinted (example: new contact menu)
+        can call closeOverlay()
+        -->
         <div id='overlay-bg' class='overlay-bg' onclick="closeOverlay();">
         </div>
 
+        <!--
+        active when an overlay menu is out and the background is normal (example: top right menu)
+        can call closeOverlay()
+        -->
         <div id='overlay-trans' class='overlay-trans' onclick="closeOverlay();">
         </div>
 
+        <!--
+        TODO no idea where this is used, if you know please add a comment
+        (probably for chat creation)
+        -->
         <div id='new_chat-overlay' class='qr-overlay'>
             Name of new chat:<br>&nbsp;<br>
             <input type="text" id="chat_name" minlength="1" maxlength="20" size="15">&nbsp;
-            <button class=passive onclick="create_chat();" style="border: 0pt; height: 40pt;"><font size=+1 color=green>&#x2714;</font>
+            <button class=passive onclick="create_chat();" style="border: 0pt; height: 40pt;"><font
+                    size=+1 color=green>&#x2714;</font>
                 create
             </button>
         </div>
 
+        <!--
+        used when clicking on the plus button in the contacts scenario
+        can call look_up(document.getElementById('contact_shortname').value) when clicking on top
+        button, qr_scan_success(document.getElementById('contact_id').value) when clicking on middle
+        button and qr_scan_start() when clicking on bottom button
+        -->
         <div id="new_contact-overlay" class="qr-overlay" style="display: none; text-align: center">
             <br>Lookup: enter the Tremola Shortname of a trustworthy person:<br>&nbsp;
             <div style="display: flex;">
@@ -111,7 +170,8 @@
                 Valid formats :<br>
                 XXXXX-XXXXX<br>
                 XXXXXXXXXX<br><br>
-                It&nbsp;must contain only letters and numbers, except an (optional) minus in the middle of the word
+                It&nbsp;must contain only letters and numbers, except an (optional) minus in the
+                middle of the word
             </tt></div>
 
             <hr>
@@ -133,7 +193,9 @@
             </tt></div>
 
             <hr>
-            <div style='margin-bottom: 15px;'>&nbsp;<br>or scan the Tremola QR code<br>of a trustworthy person:</div>
+            <div style='margin-bottom: 15px;'>&nbsp;<br>or scan the Tremola QR code<br>of a
+                trustworthy person:
+            </div>
             <button class="passive buttontext" onclick="qr_scan_start();"
                     style="border: 0pt; height: 60pt; width: 120px; background-image: url('img/qr-code-scan.svg');">
                 &nbsp;
@@ -141,6 +203,11 @@
 
         </div>
         &nbsp;
+        <!--
+        TODO no idea where this is used, if you know please add a comment
+        (probably deprecated version of new_contact-overlay or used when viewing contact)
+        can call save_content_alias()
+        -->
         <div id="old_contact-overlay" class="qr-overlay" style="display: none; text-align: left">
             <div style="text-align: center;"><em>Contact details</em><br>&nbsp;</div>
             Alias:
@@ -160,24 +227,41 @@
             </div>
         </div>
         &nbsp;
+        <!--
+        TODO no idea where this is used, if you know please add a comment
+        (probably used during contact creation)
+        can call qr_scan_confirmed()
+        -->
         <div id='confirm_contact-overlay' class='qr-overlay'>
             Enter desired alias:<br>
             <input type="text" id="alias_text" minlength="1" maxlength="20" size="15">&nbsp;
-            <button class=passive onclick="qr_scan_confirmed();" style="margin-top: 5pt; border: 0pt; height: 40pt;">
-                <font size=+1 color=green>&#x2714;</font> create new conctact
+            <button class=passive onclick="qr_scan_confirmed();"
+                    style="margin-top: 5pt; border: 0pt; height: 40pt;">
+                <font size=+1 color=green>&#x2714;</font> create new contact
             </button>
             <hr>
             <div id="alias_id" style="font-family: Courier; font-size: small;"></div>
         </div>
 
+        <!--active when top left QR button is pressed, displays QR code and encoded value-->
         <div id='qr-overlay' class='qr-overlay'>
             <div id="qr-code" style="padding-bottom: 5pt; align: center;"></div>
-            <div id="qr-text" align=left style='overflow-wrap: anywhere; font-family: Courier;font-size: small;'>did
+            <div id="qr-text" align=left
+                 style='overflow-wrap: anywhere; font-family: Courier;font-size: small;'>did
             </div>
         </div>
 
+        <!--
+        active when a message is sent and the "Preview before sending" option is selected, shows a
+        preview of the message to be sent which can be confirmed or aborted
+        can call closeOverlay() when back button is pressed or
+        new_post(document.getElementById('draft').value) when checkmark button is pressed
+        -->
         <div id='preview-overlay' class='qr-overlay'>
-            <div id='preview' style="overflow: scroll; font-size: medium; height: calc(100% - 30pt);">to_be_filled</div>
+            <div id='preview'
+                 style="overflow: scroll; font-size: medium; height: calc(100% - 30pt);">
+                to_be_filled
+            </div>
             <div>
                 <table>
                     <tr>
@@ -189,15 +273,22 @@
                         <td width=10% height=100%>
                             <button class="flat passive buttontext"
                                     style="height: 40px; background-image: url('img/checked.svg'); width: 35px;"
-                                    onclick="new_post(document.getElementById('draft').value);">&nbsp;
+                                    onclick="new_post(document.getElementById('draft').value);">
+                                &nbsp;
                             </button>
                 </table>
             </div>
         </div>
 
+        <!--
+        TODO no idea where this is used, if you know please add a comment
+        (probably used when editing messages)
+        can call edit_confirmed()
+        -->
         <div id='edit-overlay' class='qr-overlay'>
             <div id="edit_title" style='margin-bottom: 25px;'>Edit X:</div>
-            <input type="text" id="edit_text" minlength="1" size="64" style="width: calc(100% - 10px); height: 30px;">&nbsp;
+            <input type="text" id="edit_text" minlength="1" size="64"
+                   style="width: calc(100% - 10px); height: 30px;">&nbsp;
             <div style='text-align: right;'>
                 <button class="passive buttontext" onclick="edit_confirmed();"
                         style="background-image: url('img/checked.svg'); margin-right: 5px; border: 0pt; height: 30px; width: 30px;">
@@ -206,9 +297,15 @@
             </div>
         </div>
 
-        <div id='about-overlay' class='qr-overlay' style="overflow: scroll; font-size: medium; height: 75%;">
+        <!--
+        active when the About option of the top right menu is selected, displays information about
+        app
+        -->
+        <div id='about-overlay' class='qr-overlay'
+             style="overflow: scroll; font-size: medium; height: 75%;">
             <div style="text-align: center;">
-                <font size=+1><em>About</em></font><br><img src="img/map-1862.jpg" style="height: 8em;">
+                <font size=+1><em>About</em></font><br><img src="img/map-1862.jpg"
+                                                            style="height: 8em;">
                 <font size=-2>
                     <p>Tremola v0.2, April 2022
 
@@ -217,6 +314,7 @@
                         Etienne Mettaz<br>
                         Cedrik Schimschar<br>
                         Christian Tschudin<br>
+                        Lars Waldvogel<br>
                         &nbsp;
 
                     <p>Icons<br>
@@ -230,22 +328,22 @@
                     <p>Copyright (c) 2021 Computer Networks Group, University of Basel
 
                     <p>Permission is hereby granted, free of charge, to any person obtaining a copy
-                        of this software and associated documentation files (the "Software"), to deal
-                        in the Software without restriction, including without limitation the rights
-                        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-                        copies of the Software, and to permit persons to whom the Software is
+                        of this software and associated documentation files (the "Software"), to
+                        deal in the Software without restriction, including without limitation the
+                        rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+                        sell copies of the Software, and to permit persons to whom the Software is
                         furnished to do so, subject to the following conditions:
 
-                    <p>The above copyright notice and this permission notice shall be included in all
-                        copies or substantial portions of the Software.
+                    <p>The above copyright notice and this permission notice shall be included in
+                        all copies or substantial portions of the Software.
 
                     <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
                         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
                         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
                         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-                        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-                        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-                        SOFTWARE.
+                        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+                        FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+                        IN THE SOFTWARE.
 
                     <hr>
 
@@ -253,23 +351,23 @@
                     <p>Copyright (c) 2012 davidshimjs
 
                     <p>Permission is hereby granted, free of charge,
-                        to any person obtaining a copy of this software and associated documentation files (the
-                        "Software"),
-                        to deal in the Software without restriction,
-                        including without limitation the rights to use, copy, modify, merge, publish, distribute,
-                        sublicense,
-                        and/or sell copies of the Software, and to permit persons to whom the Software is furnished to
-                        do so,
-                        subject to the following conditions:
+                        to any person obtaining a copy of this software and associated documentation
+                        files (the "Software"), to deal in the Software without restriction,
+                        including without limitation the rights to use, copy, modify, merge,
+                        publish, distribute, sublicense, and/or sell copies of the Software, and to
+                        permit persons to whom the Software is furnished to do so, subject to the
+                        following conditions:
 
-                    <p>The above copyright notice and this permission notice shall be included in all copies or
-                        substantial portions of the Software.
+                    <p>The above copyright notice and this permission notice shall be included in
+                        all copies or substantial portions of the Software.
 
-                    <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-                        NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-                        NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-                        DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-                        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
+                    <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                        FITNESS FOR A PARTICULAR
+                        PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+                        HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+                        ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+                        WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
 
                 </font>
             </div>
@@ -277,29 +375,41 @@
 
     </div>
 
+    <!--active when an error message is displayed-->
     <div id="snackbar">the msg</div>
 
+    <!--
+    the three options at the bottom, active in all three major scenarios
+    can call btnBridge(this) when one of the three buttons are pressed
+    -->
     <div id='div:footer' class=neutral
          style="height: 56px; align-content: center; border: 3px inset var(--light); border-radius: 2px; margin: 3px; width: calc(100% - 12px);">
 
         <table width=100% cellpadding="2pt">
             <tr>
                 <td width=35%>
-                    <button id='btn:chats' class="w100 flat active buttontext" onclick="btnBridge(this);"
+                    <button id='btn:chats' class="w100 flat active buttontext"
+                            onclick="btnBridge(this);"
                             style="background-image: url('img/chat.svg');">&nbsp;
                         <!-- font size=+3>&#x1F4E8;</font><br><font size=small>Chats</font --></button>
                 <td width=35%>
-                    <button id='btn:contacts' class="w100 flat passive buttontext" onclick="btnBridge(this);"
+                    <button id='btn:contacts' class="w100 flat passive buttontext"
+                            onclick="btnBridge(this);"
                             style="background-image: url('img/contacts.svg');">&nbsp;
                         <!-- font size=+3>&#x1F465;</font><br><font size=small>Contacts</font --></button>
                 <td width=35%>
-                    <button id='btn:connex' class="w100 flat passive buttontext" onclick="btnBridge(this);"
+                    <button id='btn:connex' class="w100 flat passive buttontext"
+                            onclick="btnBridge(this);"
                             style="background-image: url('img/signal.svg');">&nbsp;
                         <!-- font size=+3>&#x1F5E3;</font><br><font size=small>Connex</font --></button>
         </table>
 
     </div>
 
+    <!--
+    active in the posts scenario, contains the message currently being typed and a send button
+    can call showPreview() when the send button is pressed
+    -->
     <table id="div:textarea" class="neutral"
            style="height: 56px; width: calc(100% - 6pt); display: none; border: 3px inset var(--light); margin: 3pt;"
            width=100%>
@@ -309,9 +419,14 @@
             <td width=5% height=100%>
                 <button id='btn:preview' class="flat passive buttontext" onclick="showPreview();"
                         style="background-image: url('img/send.svg'); width: 35px; height: 50px; margin-bottom: 4px;">
-                    &nbsp;<!-- font size=+2>&#x1F440;</font><br><font size=small>Preview</font --></button>
+                    &nbsp;
+                    <!-- font size=+2>&#x1F440;</font><br><font size=small>Preview</font --></button>
     </table>
 
+    <!--
+    active when the plus button is clicked in the chats scenario, it is the confirm button
+    can call new_conversation() when clicked
+    -->
     <div id='div:confirm-members' class=neutral
          style="height: 36px; align-content: center; border: 3px inset var(--light); border-radius: 2pt; margin: 3px; margin-top: 20px; display: none; flex-direction: row; justify-content: center; align-items: center;">
         <!-- button class="flat passive buttontext" style="background-image: url('img/cancel.svg'); width: 50%; height: 50px; margin: 5px;" onclick="onBackPressed();">&nbsp;</--button -->
@@ -321,6 +436,12 @@
         </button>
     </div>
 
+    <!--
+    active when the settings menu is entered from the top right menu, contains on/off switches for
+    options as well as buttons to click on
+    can call toggle_changed(this) when a switch is toggled, menu_reset(), menu_stream_all_posts(),
+    backend('exportSecret') and settings_wipe() when the respective buttons are pressed
+    -->
     <div id="div:settings" style="display: none; height: calc(100% - 45px);">
         <div style="height: 100%; overflow: scroll; margin: 6px;">
             <div style="text-align: center;"><em>Configurations</em></div>
@@ -339,7 +460,8 @@
             <div class="settings">
                 <div class="settingsText">Hide forgotten contacts</div>
                 <div style="float: right;"><label class="switch">
-                    <input id="hide_forgotten_contacts" type="checkbox" onchange="toggle_changed(this);">
+                    <input id="hide_forgotten_contacts" type="checkbox"
+                           onchange="toggle_changed(this);">
                     <span class="slider round"></span></label></div>
             </div>
             <hr>
@@ -347,7 +469,8 @@
             <div class="settings">
                 <div class="settingsText">Hide forgotten conversations</div>
                 <div style="float: right;"><label class="switch">
-                    <input id="hide_forgotten_conv" type="checkbox" onchange="toggle_changed(this);">
+                    <input id="hide_forgotten_conv" type="checkbox"
+                           onchange="toggle_changed(this);">
                     <span class="slider round"></span></label></div>
             </div>
             <hr>
@@ -398,12 +521,14 @@
 
 
             <p>
-                <button class="w100 button active item" style="height: 2.5em;" onclick="menu_reset();">
+                <button class="w100 button active item" style="height: 2.5em;"
+                        onclick="menu_reset();">
                     Reset UI (but keep ID)
                 </button>
             <hr>
             <p>
-                <button class="w100 button active item" style="height: 2.5em;" onclick="menu_stream_all_posts();">
+                <button class="w100 button active item" style="height: 2.5em;"
+                        onclick="menu_stream_all_posts();">
                     Re-stream posts
                 </button>
             <hr>
@@ -418,13 +543,16 @@
                 </button>
             <hr>
             <p>
-                <button class="w100 button active item" style="height: 3em;" onclick="backend('exportSecret');">
+                <button class="w100 button active item" style="height: 3em;"
+                        onclick="backend('exportSecret');">
                     Export secret key
                 </button>
             <hr>
             <p>&nbsp;<br>&nbsp;<br>&nbsp;<br>
-                <button class="w100 button active item" style="height: 2.5em;" onclick="settings_wipe();">
-                    <span style="color: var(--red);font-weight: 900;">WIPE EVERYTHING IMMEDIATELY</span></button>
+                <button class="w100 button active item" style="height: 2.5em;"
+                        onclick="settings_wipe();">
+                    <span style="color: var(--red);font-weight: 900;">WIPE EVERYTHING IMMEDIATELY</span>
+                </button>
             <hr>
             &nbsp;
         </div>
