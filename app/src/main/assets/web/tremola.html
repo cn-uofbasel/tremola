@@ -14,10 +14,10 @@
 <div style="width: 100%; height: 100%; margin: 0px">
 
     <!--
-    Contains menu on the top right when visible
+    Contains menu on the top right when visible.
     Can call menu_new_conversation() in scenario chats, menu_new_contact() in scenario contacts, menu_new_pub() and
      menu_invite() in scenario connex, menu_edit_convname() and menu_forget_conv() in scenario posts and menu_settings()
-     and menu_about() regardless of current scenario
+     and menu_about() regardless of current scenario.
     -->
     <div id='menu' class='menu-overlay'>
         <!--  <button onclick="delete_chat_item();">Delete this chat</button><br>
@@ -27,9 +27,9 @@
 
     <!--
     Contains the header at the top:
-    The QR button, the title and the menu button when in one of the three main scenarios
-    The back button, the chat name and the menu button when in the posts scenario
-    The back button, the settings title and the menu button when in the settings scenario
+    The QR button, the title and the menu button when in one of the three main scenarios.
+    The back button, the chat name and the menu button when in the posts scenario.
+    The back button, the settings title and the menu button when in the settings scenario.
     Can call showQR() when clicking on QR button, onBackPressed() when clicking on the back button, btnBridge(this) when
      clicking on the menu button.
     -->
@@ -51,7 +51,7 @@
                 <font size=+2 color=#e85132>T R E M O L A<!-- &#x26F0; --></font></div>
             <!--
             Holds both the title of a conversation in the posts scenario, but also the title in the settings scenario,
-             contrary to its name
+             contrary to its name.
             -->
             <div id='conversationTitle'
                  style="display: none; padding-left: 5px; padding-right: 5px; padding-top: 2px; color: #e85132; font-size: small; overflow: hidden; width: 100%;">
@@ -74,12 +74,12 @@
     <div id='core' style="height: calc(100% - 118px); overflow: scroll; width: 100%;">
 
         <!--
-        Active when the leftmost footer button is pressed, contains the list of chats
-        Can call load_chat("@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        Active when the leftmost footer button is pressed, contains the list of chats.
+        Can call load_chat("@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").
         -->
         <div id='lst:chats' class=w100 style='overflow: hidden'></div>
 
-        <!--Active when a chat is selected, contains the list of exchanged messages-->
+        <!--Active when a chat is selected, contains the list of exchanged messages.-->
         <table id='lst:posts' style="width: 100%; display: none;">
             <colgroup>
                 <col span="1" style="width: 2%;"/>
@@ -95,16 +95,16 @@
         </table>
 
         <!--
-        Active when the middle footer button is pressed, contains a list of your contacts
+        Active when the middle footer button is pressed, contains a list of your contacts.
         Can call show_contact_details("@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.ed25519" when you press on one of
-         the contacts
+         the contacts.
         -->
         <div id='lst:contacts' class=w100 style="display: none;margin-top: 6px;"></div>
 
-        <!--Active when the rightmost footer button is pressed-->
+        <!--Active when the rightmost footer button is pressed.-->
         <div id='the:connex' style="display: none; margin: 5pt;"></div>
 
-        <!--Active when the creating a new conversation, contains a list of contacts which can be selected-->
+        <!--Active when the creating a new conversation, contains a list of contacts which can be selected.-->
         <div id='lst:members' style="display: none; margin: 3px;">
             <div style="margin-top: 10pt;">
                 <label>
@@ -118,29 +118,31 @@
         </div>
 
         <!--
-        Contains the plus button on the bottom right
-        Can call plus_button()
+        Contains the plus button on the bottom right.
+        Can call plus_button().
         -->
         <div id="plus">
             <button class=float_button onclick="plus_button();">+</button>
         </div>
 
         <!--
-        Active when an overlay menu is out and the background is tinted (example: new contact menu)
-        Can call closeOverlay()
+        Active when an overlay menu is out and the background is tinted (example: new contact menu).
+        Can call closeOverlay().
         -->
         <div id='overlay-bg' class='overlay-bg' onclick="closeOverlay();">
         </div>
 
         <!--
-        Active when an overlay menu is out and the background is normal (example: top right menu)
-        Can call closeOverlay()
+        Active when an overlay menu is out and the background is normal (example: top right menu).
+        Can call closeOverlay().
         -->
         <div id='overlay-trans' class='overlay-trans' onclick="closeOverlay();">
         </div>
 
         <!--
-        TODO No idea where this is used, if you know please add a comment (probably for chat creation)
+        TODO No idea where this is used, if you know please add a comment (probably meant for chat creation, but is
+         never called in frontend code).
+        Can call create_chat().
         -->
         <div id='new_chat-overlay' class='qr-overlay'>
             Name of new chat:<br>&nbsp;<br>
@@ -152,10 +154,11 @@
         </div>
 
         <!--
-        Used when clicking on the plus button in the contacts scenario
+        Used when clicking on the plus button in the contacts scenario.
         Can call look_up(document.getElementById('contact_shortname').value) when clicking on top button,
-         qr_scan_success(document.getElementById('contact_id').value) when clicking on middle button and qr_scan_start()
-         when clicking on bottom button
+         qr_scan_success(document.getElementById('contact_id').value) when clicking on middle button and
+         qr_scan_start().
+         when clicking on bottom button.
         -->
         <div id="new_contact-overlay" class="qr-overlay" style="display: none; text-align: center">
             <br>Lookup: enter the Tremola Shortname of a trustworthy person:<br>&nbsp;
@@ -208,8 +211,8 @@
         &nbsp;
         <!--
         TODO No idea where this is used, if you know please add a comment (probably deprecated version of
-         new_contact-overlay or used when viewing contact)
-        Can call save_content_alias()
+         new_contact-overlay or used when viewing contact).
+        Can call save_content_alias().
         -->
         <div id="old_contact-overlay" class="qr-overlay" style="display: none; text-align: left">
             <div style="text-align: center;"><em>Contact details</em><br>&nbsp;</div>
@@ -231,8 +234,8 @@
         </div>
         &nbsp;
         <!--
-        TODO No idea where this is used, if you know please add a comment (probably used during contact creation)
-        Can call qr_scan_confirmed()
+        Used when a contact is created. It holds the alias_id and alias_text, which are saved.
+        Can call qr_scan_confirmed().
         -->
         <div id='confirm_contact-overlay' class='qr-overlay'>
             Enter desired alias:<br>
@@ -245,7 +248,7 @@
             <div id="alias_id" style="font-family: Courier; font-size: small;"></div>
         </div>
 
-        <!--Active when top left QR button is pressed, displays QR code and encoded value-->
+        <!--Active when top left QR button is pressed, displays QR code and encoded value.-->
         <div id='qr-overlay' class='qr-overlay'>
             <div id="qr-code" style="padding-bottom: 5pt; align: center;"></div>
             <div id="qr-text" align=left
@@ -255,9 +258,9 @@
 
         <!--
         Active when a message is sent and the "Preview before sending" option is selected, shows a preview of the
-         message to be sent which can be confirmed or aborted
+         message to be sent which can be confirmed or aborted.
         Can call closeOverlay() when back button is pressed or new_post(document.getElementById('draft').value) when
-         checkmark button is pressed
+         checkmark button is pressed.
         -->
         <div id='preview-overlay' class='qr-overlay'>
             <div id='preview'
@@ -283,8 +286,9 @@
         </div>
 
         <!--
-        Active when using Rename option of menu in posts scenario, allows to rename the conversation name
-        Can call edit_confirmed()
+        Active when using Rename option of menu in posts scenario, allows to rename the conversation name.
+        Also active when pressing the plus button in the connex scenario, allows to add a pub.
+        Can call edit_confirmed().
         -->
         <div id='edit-overlay' class='qr-overlay'>
             <div id="edit_title" style='margin-bottom: 25px;'>Edit X:</div>
@@ -298,7 +302,7 @@
             </div>
         </div>
 
-        <!--Active when the About option of the top right menu is selected, displays information about app-->
+        <!--Active when the About option of the top right menu is selected, displays information about app.-->
         <div id='about-overlay' class='qr-overlay'
              style="overflow: scroll; font-size: medium; height: 75%;">
             <div style="text-align: center;">
@@ -373,12 +377,12 @@
 
     </div>
 
-    <!--Active when an error message is displayed-->
+    <!--Active when an error message is displayed.-->
     <div id="snackbar">the msg</div>
 
     <!--
-    The three options at the bottom, active in all three major scenarios
-    Can call btnBridge(this) when one of the three buttons are pressed
+    The three options at the bottom, active in all three major scenarios.
+    Can call btnBridge(this) when one of the three buttons are pressed.
     -->
     <div id='div:footer' class=neutral
          style="height: 56px; align-content: center; border: 3px inset var(--light); border-radius: 2px; margin: 3px; width: calc(100% - 12px);">
@@ -405,8 +409,8 @@
     </div>
 
     <!--
-    Active in the posts scenario, contains the message currently being typed and a send button
-    Can call showPreview() when the send button is pressed
+    Active in the posts scenario, contains the message currently being typed and a send button.
+    Can call showPreview() when the send button is pressed.
     -->
     <table id="div:textarea" class="neutral"
            style="height: 56px; width: calc(100% - 6pt); display: none; border: 3px inset var(--light); margin: 3pt;"
@@ -422,8 +426,8 @@
     </table>
 
     <!--
-    Active when the plus button is clicked in the chats scenario, it is the confirm button
-    Can call new_conversation() when clicked
+    Active when the plus button is clicked in the chats scenario, it is the confirm button.
+    Can call new_conversation() when clicked.
     -->
     <div id='div:confirm-members' class=neutral
          style="height: 36px; align-content: center; border: 3px inset var(--light); border-radius: 2pt; margin: 3px; margin-top: 20px; display: none; flex-direction: row; justify-content: center; align-items: center;">
@@ -436,9 +440,9 @@
 
     <!--
     Active when the settings menu is entered from the top right menu, contains on/off switches for options as well as
-     buttons to click on
+     buttons to click on.
     Can call toggle_changed(this) when a switch is toggled, menu_reset(), menu_stream_all_posts(),
-     backend('exportSecret') and settings_wipe() when the respective buttons are pressed
+     backend('exportSecret') and settings_wipe() when the respective buttons are pressed.
     -->
     <div id="div:settings" style="display: none; height: calc(100% - 45px);">
         <div style="height: 100%; overflow: scroll; margin: 6px;">
