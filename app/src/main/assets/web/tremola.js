@@ -2,19 +2,28 @@
 
 "use strict";
 
-var tremola;
-var curr_chat;
-var qr;
-var myId;
-var localPeers = {}; // feedID ~ [isOnline, isConnected] - TF, TT, FT - FF means to remove this entry
-var must_redraw = false;
-var edit_target = '';
-var new_contact_id = '';
-var colors = ["#d9ceb2", "#99b2b7", "#e6cba5", "#ede3b4", "#8b9e9b", "#bd7578", "#edc951",
+// The primary object that gets serialized and stored. Contains contacts dictionary, among other things
+let tremola;
+// Variable to keep track which chat we are in.
+let curr_chat;
+// This object contains the QR code that was last generated.
+let qr;
+// Contains the user's SSB ID.
+let myId;
+// List of peers in a local network.
+let localPeers = {}; // feedID ~ [isOnline, isConnected] - TF, TT, FT - FF means to remove this entry
+// Variable whether the UI has to be redrawn or not.
+let must_redraw = false;
+// This variable keeps track what the edit_overlay was used for.
+let edit_target = '';
+// The ID of the new contact being generated.
+let new_contact_id = '';
+// An array of nice colors.
+const colors = ["#d9ceb2", "#99b2b7", "#e6cba5", "#ede3b4", "#8b9e9b", "#bd7578", "#edc951",
     "#ffd573", "#c2a34f", "#fbb829", "#ffab03", "#7ab317", "#a0c55f", "#8ca315",
     "#5191c1", "#6493a7", "#bddb88"]
-
-var pubs = []
+// The list of known pubs.
+let pubs = []
 
 // --- menu callbacks
 
@@ -33,6 +42,9 @@ function menu_sync() {
 }
 */
 
+/**
+ * Sets up the members scenario after the plus button was pressed in the chats scenario.
+ */
 function menu_new_conversation() {
     fill_members()
     prev_scenario = 'chats'
@@ -40,12 +52,15 @@ function menu_new_conversation() {
     document.getElementById("div:textarea").style.display = 'none';
     document.getElementById("div:confirm-members").style.display = 'flex';
     document.getElementById("tremolaTitle").style.display = 'none';
-    var c = document.getElementById("conversationTitle");
+    const c = document.getElementById("conversationTitle");
     c.style.display = null;
     c.innerHTML = "<font size=+1><strong>Create New Conversation</strong></font><br>Select up to 7 members";
     document.getElementById('plus').style.display = 'none';
 }
 
+/**
+ * Sets up the new_contact-overlay after the plus button was pressed in the contacts scenario.
+ */
 function menu_new_contact() {
     document.getElementById('new_contact-overlay').style.display = 'initial';
     document.getElementById('overlay-bg').style.display = 'initial';
@@ -53,14 +68,24 @@ function menu_new_contact() {
     overlayIsActive = true;
 }
 
+/**
+ * Sets up the edit-overlay for entering the address of a pub after the plus button was pressed in the connex scenario.
+ */
 function menu_new_pub() {
     menu_edit('new_pub_target', "Enter address of trustworthy pub<br><br>Format:<br><tt>net:IP_ADDR:PORT~shs:ID_OF_PUB</tt>", "");
 }
 
+/**
+ * Sets up the edit-overlay for redeeming an invite code after "Redeem invite code" was selected from the top-right menu
+ * in the connex scenario.
+ */
 function menu_invite() {
     menu_edit('new_invite_target', "Enter invite code<br><br>Format:<br><tt>IP_ADDR:PORT:@ID_OF_PUB.ed25519~INVITE_CODE</tt>", "");
 }
 
+/**
+ * Resends all messages when the user selects "Re-stream posts" in the settings scenario.
+ */
 function menu_stream_all_posts() {
     // closeOverlay();
     setScenario('chats')
@@ -68,6 +93,9 @@ function menu_stream_all_posts() {
     backend("restream");
 }
 
+/**
+ * Refreshes the UI on command. It reloads the current conversation, the list of chats and the contacts.
+ */
 function menu_redraw() {
     closeOverlay();
 
@@ -89,6 +117,12 @@ function menu_reset() {
     backend("reset");
 }
 
+/**
+ * Opens the edit-overlay, in which the title is displayed along with a text input field.
+ * @param target {String} Overwrites the edit_target, so other functions know what the input was for.
+ * @param title {String} The title to display to the user.
+ * @param text {String} The text already in the editable text field.
+ */
 function menu_edit(target, title, text) {
     closeOverlay()
     document.getElementById('edit-overlay').style.display = 'initial';
@@ -100,8 +134,14 @@ function menu_edit(target, title, text) {
     edit_target = target;
 }
 
+/**
+ * Opens an edit-overlay to change the name of a conversation when selecting the "Rename" option in the top-right menu
+ * in the posts scenario.
+ */
 function menu_edit_convname() {
-    menu_edit('convNameTarget', "Edit conversation name:<br>(only you can see this name)", tremola.chats[curr_chat].alias);
+    menu_edit('convNameTarget',
+        "Edit conversation name:<br>(only you can see this name)",
+        tremola.chats[curr_chat].alias);
 }
 
 // function menu_edit_new_contact_alias() {
@@ -163,6 +203,10 @@ function menu_forget_conv() {
         load_chat(curr_chat) // refresh currently displayed list of posts
 }
 
+/**
+ * Not functional. Is supposed to import the secret ID of another device.
+ * TODO make this work
+ */
 function menu_import_id() {
     // backend('secret: XXX');
     closeOverlay();
@@ -258,12 +302,12 @@ function load_chat_title(ch) {
 }
 
 function load_chat_list() {
-    var meOnly = recps2nm([myId])
+    const meOnly = recps2nm([myId])
     // console.log('meOnly', meOnly)
     document.getElementById('lst:chats').innerHTML = '';
     load_chat_item(meOnly)
-    var lop = [];
-    for (var p in tremola.chats) {
+    let lop = [];
+    for (let p in tremola.chats) {
         if (p !== meOnly && !tremola.chats[p]['forgotten'])
             lop.push(p)
     }
@@ -334,9 +378,13 @@ function load_contact_item(c) { // [ id, { "alias": "thealias", "initial": "T", 
     document.getElementById('lst:contacts').append(item);
 }
 
+/**
+ * Sets up the UI to display all contacts as a list of options with checkboxes which can be selected.
+ * This is vital for the scenario members.
+ */
 function fill_members() {
-    var choices = '';
-    for (var m in tremola.contacts) {
+    let choices = '';
+    for (let m in tremola.contacts) {
         choices += '<div style="margin-bottom: 10px;"><label><input type="checkbox" id="' + m;
         choices += '" style="vertical-align: middle;"><div class="contact_item_button light" style="white-space: nowrap; width: calc(100% - 40px); padding: 5px; vertical-align: middle;">';
         choices += '<div style="text-overflow: ellipis; overflow: hidden;">' + escapeHTML(fid2display(m)) + '</div>';
@@ -508,23 +556,46 @@ function id2b32(str, method_name) { // derive a shortname from the SSB id
     }
 }
 
+/**
+ * Takes a string and returns string with securely escaped HTML characters.
+ * @param str {String} The string to escape.
+ * @returns {string} The escaped string.
+ */
 function escapeHTML(str) {
     return new Option(str).innerHTML;
 }
 
+/**
+ * Takes a list of recipient's IDs and TODO
+ * @param rcps
+ * @returns {String}
+ */
 function recps2nm(rcps) { // use concat of sorted FIDs as internal name for conversation
     return rcps.sort().join('').replace(/.ed25519/g, '')
 }
 
+/**
+ * Takes a list of recipients and returns them as a human-readable string.
+ * TODO write accurate description
+ * @param rcps The recipients in the machine-readable form.
+ * @returns {string} Human-readable recipients list, enclosed in brackets.
+ */
 function recps2display(rcps) {
-    var lst = rcps.map(fid => {
+    const lst = rcps.map(fid => {
         return fid2display(fid)
     });
     return '[' + lst.join(', ') + ']';
 }
 
+/**
+ * Finds a fitting alias for a contact's ID.
+ * It takes a friend's ID, looks it up in the tremola.contacts dictionary and retrieves the alias.
+ * If nothing was found or the alias is empty, returns the first 9 letters of the contact.
+ * @param fid The SSB ID of a friend.
+ * @returns {string} The most fitting alias for the ID.
+ */
 function fid2display(fid) {
-    var a = '';
+    let a = '';
     if (fid in tremola.contacts)
         a = tremola.contacts[fid].alias;
     if (a === '')
@@ -534,11 +605,19 @@ function fid2display(fid) {
 
 // --- Interface to Kotlin side and local (browser) storage
 
-function backend(cmdStr) { // send this to Kotlin (or simulate in case of browser-only testing)
-    if (typeof Android != 'undefined') {
+/**
+ * Takes a string to send to the Kotlin backend.
+ * If we are not on an Android device, this simulates the most basic functionality of the actual backend for in-browser
+ * testing.
+ * @param cmdStr The string that gets passed to the backend or is used for the simulated response.
+ */
+function backend(cmdStr) {
+    if (typeof Android != 'undefined') { // Android device: simply call backend
         Android.onFrontendRequest(cmdStr);
         return;
     }
+
+    // Only called on non-Android devices: Simulating the backend functionality for in-browser testing
     cmdStr = cmdStr.split(' ')
     if (cmdStr[0] === 'ready')
         b2f_initialize('@AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.ed25519')
@@ -580,6 +659,9 @@ function resetTremola() { // wipes browser-side content
     persist();
 }
 
+/**
+ * Saves the tremola object to local storage.
+ */
 function persist() {
     // console.log(tremola);
     window.localStorage.setItem("tremola", JSON.stringify(tremola));
@@ -598,8 +680,13 @@ function b2f_local_peer(p, status) { // wireless peer: online, offline, connecte
     load_peer_list()
 }
 
+/**
+ * After a lookup returns a result, a snackbar is launched displaying the result.
+ * @param shortname The shortname that we searched for initially.
+ * @param public_key The found public key of the person that was looked up.
+ */
 function snackbar_lookup_back(shortname, public_key) {
-    launch_snackbar(shortname, " : ", public_key)
+    launch_snackbar(shortname  + " : " + public_key)
 }
 
 function b2f_new_contact_lookup(target_short_name, new_contact_id) {
