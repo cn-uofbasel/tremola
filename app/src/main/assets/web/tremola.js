@@ -108,6 +108,11 @@ function menu_redraw() {
         load_chat(curr_chat);
 }
 
+/**
+ * Resets the UI but keeps the current ID.
+ * Returns to chats scenario, wipes all chats, contacts, pubs, etc. but keeps the ID.
+ * Does NOT delete the contact data in the backend, which is used for lookups for example.
+ */
 function menu_reset() {
     closeOverlay();
     resetTremola();
@@ -148,49 +153,70 @@ function menu_edit_convname() {
 //   menu_edit('new_contact_alias', "Assign alias to new contact:", "");
 // }
 
-function edit_confirmed_back(shortname, public_key) {
-    console.log("edit_confirmed_back: " + shortname + ", " + public_key)
+/**
+ * Called when the user added a contact. Adds the contact to the tremola object in the frontend and also to the backend.
+ * Opens a chat with the newly added user and saves.
+ * @param alias The alias of the contact to be added.
+ * @param public_key The public key of the contact to be added.
+ */
+function edit_confirmed_back(alias, public_key) {
+    console.log("edit_confirmed_back: " + alias + ", " + public_key)
     tremola.contacts[new_contact_id] = {
-        "alias": shortname, "initial": shortname.substring(0, 1).toUpperCase(),
+        "alias": alias, "initial": alias.substring(0, 1).toUpperCase(),
         "color": colors[Math.floor(colors.length * Math.random())]
     };
-    var recps = [myId, new_contact_id];
-    var nm = recps2nm(recps);
+    const recps = [myId, new_contact_id];
+    const nm = recps2nm(recps);
     tremola.chats[nm] = {
-        "alias": "Chat w/ " + shortname, "posts": {}, "members": recps,
+        "alias": "Chat w/ " + alias, "posts": {}, "members": recps,
         "touched": Date.now(), "lastRead": 0
     };
     persist();
-    backend("add:contact " + new_contact_id + " " + btoa(shortname))
+    backend("add:contact " + new_contact_id + " " + btoa(alias))
     menu_redraw();
 }
 
+/**
+ * Called when an edit-overlay is closed by confirming. Depending on what the overlay was for, follows up in different
+ * ways.
+ * <ul>
+ *     <li> Change the name of the conversation. </li>
+ *     <li> Add a contact with their alias. </li>
+ *     <li> Add a pub (unfinished). </li>
+ *     <li> Redeem an invite code. </li>
+ * </ul>
+ */
 function edit_confirmed() {
     closeOverlay()
-    var val = document.getElementById('edit_text').value;
-    if (edit_target === 'convNameTarget') {
-        var ch = tremola.chats[curr_chat];
+    const val = document.getElementById('edit_text').value;
+    if (edit_target === 'convNameTarget') { // User was editing the name of a conversation
+        // Update the name and save it, redraw page
+        const ch = tremola.chats[curr_chat];
         ch.alias = val;
         persist();
         load_chat_title(ch); // also have to update entry in chats
         menu_redraw();
-    } else if (edit_target === 'new_contact_alias' || edit_target === 'trust_wifi_peer') {
+    } else if (edit_target === 'new_contact_alias' || edit_target === 'trust_wifi_peer') { // User was adding a contact
         document.getElementById('contact_id').value = '';
         if (val === '')
             id2b32(new_contact_id, 'edit_confirmed_back')
         else
             edit_confirmed_back(val, new_contact_id)
-    } else if (edit_target === 'new_pub_target') {
+    } else if (edit_target === 'new_pub_target') { // User was adding a pub FIXME does not do anything
         console.log("action for new_pub_target")
-    } else if (edit_target === 'new_invite_target') {
+    } else if (edit_target === 'new_invite_target') { // User was redeeming an invite code
         backend("invite:redeem " + val)
     }
 }
 
+/**
+ * Toggles the forgotten attribute of a chat. Being forgotten makes it hidden in the UI but does not delete it.
+ * Your own chat will prompt an error. Forgetting a chat will put you in the chats scenario, unforgetting it will reload
+ * it.
+ */
 function menu_forget_conv() {
-    // toggles the forgotten flag of a conversation
-    if (curr_chat === recps2nm([myId])) {
-        launch_snackbar("cannot be applied to own notes");
+    if (curr_chat === recps2nm([myId])) { // You cannot forget the chat with yourself.
+        launch_snackbar("You cannot forget your own notes.");
         return;
     }
     tremola.chats[curr_chat].forgotten = !tremola.chats[curr_chat].forgotten;
@@ -204,11 +230,13 @@ function menu_forget_conv() {
 }
 
 /**
+ * Imports the secret ID of another device onto the current one.
  * Not functional. Is supposed to import the secret ID of another device.
  * TODO make this work
  */
 function menu_import_id() {
     // backend('secret: XXX');
+    launch_snackbar("Not functional at the moment.")
     closeOverlay();
 }
 
@@ -547,8 +575,12 @@ function unicodeStringToTypedArray(s) {
     return binstr;
 }
 
-
-function id2b32(str, method_name) { // derive a shortname from the SSB id
+/**
+ * Takes a string from which it derives a shortname, then calls method_name(<shortname>, str).
+ * @param str {String} The string to generate a shortname from, typically an SSB ID.
+ * @param method_name {String} The method which is called afterwards with arguments <shortname> and str.
+ */
+function id2b32(str, method_name) {
     try {
         backend("priv:hash " + str + " " + method_name);
     } catch (err) {
@@ -566,11 +598,12 @@ function escapeHTML(str) {
 }
 
 /**
- * Takes a list of recipient's IDs and TODO
- * @param rcps
- * @returns {String}
+ * Takes a list of SSB IDs, sorts them, concatenates them and removes all .ed25519.
+ * Usually used to derive an internal name for a chat or a contact.
+ * @param rcps {[String]} An array of SSB IDs.
+ * @returns {String} The initial IDs, sorted, concatenated with the .ed25519 removed.
  */
-function recps2nm(rcps) { // use concat of sorted FIDs as internal name for conversation
+function recps2nm(rcps) {
     return rcps.sort().join('').replace(/.ed25519/g, '')
 }
 
@@ -642,6 +675,10 @@ function backend(cmdStr) {
     }
 }
 
+/**
+ * Resets the browser-side content and initializes the tremola object.
+ * Initializes the tremola object with one's ID, opens a chat with oneself, adds oneself to contacts and saves.
+ */
 function resetTremola() { // wipes browser-side content
     tremola = {
         "chats": {},
@@ -650,7 +687,7 @@ function resetTremola() { // wipes browser-side content
         "id": myId,
         "settings": get_default_settings()
     }
-    var n = recps2nm([myId])
+    const n = recps2nm([myId])
     tremola.chats[n] = {
         "alias": "local notes (for my eyes only)", "posts": {}, "forgotten": false,
         "members": [myId], "touched": Date.now(), "lastRead": 0
@@ -768,6 +805,11 @@ function b2f_showSecret(json) {
     generateQR(json)
 }
 
+/**
+ * Sets the app's ID to the provided one, loads the tremola object from browser storage, resets and initializes frontend
+ * if tremola object is empty, loads settings, loads chats and contacts and goes to chats scenario.
+ * @param id The ID that tremola should use as one's own.
+ */
 function b2f_initialize(id) {
     myId = id
     if (window.localStorage.tremola) {
@@ -780,10 +822,10 @@ function b2f_initialize(id) {
         resetTremola();
     }
     if (typeof Android == 'undefined')
-        console.log("loaded ", JSON.stringify(tremola))
+        console.log("loaded ", JSON.stringify(tremola)) // prints debug information if simulating frontend in browser
     if (!('settings' in tremola))
         tremola.settings = {}
-    var nm;
+    let nm;
     for (nm in tremola.settings)
         setSetting(nm, tremola.settings[nm])
     load_chat_list()
