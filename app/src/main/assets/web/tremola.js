@@ -16,13 +16,13 @@ let localPeers = {}; // feedID ~ [isOnline, isConnected] - TF, TT, FT - FF means
 let must_redraw = false;
 // This variable keeps track what the edit_overlay was used for.
 let edit_target = '';
-// The ID of the new contact being generated.
+// The ID of the current contact being viewed or generated.
 let new_contact_id = '';
 // An array of nice colors.
 const colors = ["#d9ceb2", "#99b2b7", "#e6cba5", "#ede3b4", "#8b9e9b", "#bd7578", "#edc951",
     "#ffd573", "#c2a34f", "#fbb829", "#ffab03", "#7ab317", "#a0c55f", "#8ca315",
     "#5191c1", "#6493a7", "#bddb88"]
-// The list of known pubs.
+// The list of known pubs. Unused.
 let pubs = []
 
 // --- menu callbacks
@@ -72,7 +72,8 @@ function menu_new_contact() {
  * Sets up the edit-overlay for entering the address of a pub after the plus button was pressed in the connex scenario.
  */
 function menu_new_pub() {
-    menu_edit('new_pub_target', "Enter address of trustworthy pub<br><br>Format:<br><tt>net:IP_ADDR:PORT~shs:ID_OF_PUB</tt>", "");
+    menu_edit('new_pub_target', "Enter address of trustworthy pub<br><br>"
+        + "Format:<br><tt>net:IP_ADDR:PORT~shs:ID_OF_PUB</tt>", "");
 }
 
 /**
@@ -80,7 +81,8 @@ function menu_new_pub() {
  * in the connex scenario.
  */
 function menu_invite() {
-    menu_edit('new_invite_target', "Enter invite code<br><br>Format:<br><tt>IP_ADDR:PORT:@ID_OF_PUB.ed25519~INVITE_CODE</tt>", "");
+    menu_edit('new_invite_target', "Enter invite code<br><br>Format:<br>"
+        + "<tt>IP_ADDR:PORT:@ID_OF_PUB.ed25519~INVITE_CODE</tt>", "");
 }
 
 /**
@@ -231,7 +233,7 @@ function menu_forget_conv() {
 
 /**
  * Imports the secret ID of another device onto the current one.
- * Not functional. Is supposed to import the secret ID of another device.
+ * Not functional, unused.
  * TODO make this work
  */
 function menu_import_id() {
@@ -240,128 +242,187 @@ function menu_import_id() {
     closeOverlay();
 }
 
+/**
+ * Not sure what this is for, probably fetches messages.
+ * Not functional, unused.
+ * TODO make this work
+ */
 function menu_process_msgs() {
-    backend('process.msg');
+    launch_snackbar("Not functional at the moment.")
+    backend('process.msg'); // Not a valid input for the backend, does nothing
     closeOverlay();
 }
 
+/**
+ * Adds a Pub via its address to the device.
+ * Not functional, unused.
+ * TODO make this work
+ */
 function menu_add_pub() {
-    // ...
+    launch_snackbar("Not functional at the moment.")
     closeOverlay();
 }
 
+/**
+ * Not sure what this is for, probably to export all data.
+ * Not functional, unused.
+ * TODO make this work
+ */
 function menu_dump() {
+    launch_snackbar("Not functional at the moment.")
     backend('dump:');
     closeOverlay();
 }
 
 // ---
 
+/**
+ * Sends message to backend to be sent, displays the message, scrolls to bottom, clears text field.
+ * Called when user sends a text (after preview is confirmed, should it be enabled).
+ * @param s {String} The message to be sent.
+ */
 function new_post(s) {
     if (s.length === 0) {
         return;
     }
-    var draft = unicodeStringToTypedArray(document.getElementById('draft').value); // escapeHTML(
-    var recps = tremola.chats[curr_chat].members.join(' ')
+    // TODO escapeHTML() might be the better choice here
+    const draft = unicodeStringToTypedArray(document.getElementById('draft').value);
+    // Concatenated IDs of all chat members
+    const recps = tremola.chats[curr_chat].members.join(' ')
     backend("priv:post " + btoa(draft) + " " + recps);
-    var c = document.getElementById('core');
+    const c = document.getElementById('core');
     c.scrollTop = c.scrollHeight;
     document.getElementById('draft').value = '';
     closeOverlay();
 }
 
-function load_post_item(p) { // { 'key', 'from', 'when', 'body', 'to' (if group or public)>
-    var pl = document.getElementById('lst:posts');
-    var is_other = p["from"] !== myId;
-    var box = "<div class=light style='padding: 3pt; border-radius: 4px; box-shadow: 0 0 5px rgba(0,0,0,0.7);'>"
-    if (is_other)
+/**
+ * Takes a message and puts it in the list of messages of the posts scenario.
+ * @param p Message object with fields: 'key', 'from', 'when', 'body', 'to'. 'to' seems unused.
+ */
+function load_post_item(p) {
+    const pl = document.getElementById('lst:posts');
+    const is_other = p["from"] !== myId;
+    // The UI box for the message
+    let box = "<div class=light style='padding: 3pt; border-radius: 4px; box-shadow: 0 0 5px rgba(0,0,0,0.7);'>"
+    if (is_other) // If it is from someone else, include sender's name
         box += "<font size=-1><i>" + fid2display(p["from"]) + "</i></font><br>";
-    var txt = escapeHTML(p["body"]).replace(/\n/g, "<br>\n");
-    var d = new Date(p["when"]);
+    // The message content, formatted for view
+    const txt = escapeHTML(p["body"]).replace(/\n/g, "<br>\n");
+    // The date string of the message
+    let d = new Date(p["when"]);
     d = d.toDateString() + ' ' + d.toTimeString().substring(0, 5);
     box += txt + "<div align=right style='font-size: x-small;'><i>";
     box += d + "</i></div></div>";
-    var row;
-    if (is_other) {
-        var c = tremola.contacts[p.from]
-        row = "<td style='vertical-align: top;'><button class=contact_picture style='margin-right: 0.5em; margin-left: 0.25em; background: " + c.color + "; width: 2em; height: 2em;'>" + c.initial + "</button>"
+    let row;
+    if (is_other) { // If it is from someone else, include the contact's initial on the message and put it left
+        const c = tremola.contacts[p.from]
+        row = "<td style='vertical-align: top;'><button class=contact_picture style='margin-right: 0.5em; margin-left: "
+            + "0.25em; background: " + c.color + "; width: 2em; height: 2em;'>" + c.initial + "</button>"
         // row  = "<td style='vertical-align: top; color: var(--red); font-weight: 900;'>&gt;"
         row += "<td colspan=2 style='padding-bottom: 10px;'>" + box + "<td colspan=2>";
-    } else {
+    } else { // If it is a message from yourself, include a < and keep it right
         row = "<td colspan=2><td colspan=2 style='padding-bottom: 10px;'>" + box;
         row += "<td style='vertical-align: top; color: var(--red); font-weight: 900;'>&lt;"
     }
     pl.insertRow(pl.rows.length).innerHTML = row;
 }
 
+/**
+ * Loads the posts scenario of the chat you clicked on in the chats scenario.
+ * @param nm The internal name of the chat, looks like: @AA...AA=, might be concatenated for group chats.
+ */
 function load_chat(nm) {
-    var ch, pl, e;
-    ch = tremola.chats[nm]
+    let ch, pl, e;
+    ch = tremola.chats[nm];
     pl = document.getElementById("lst:posts");
+    // Clears the current lists of posts.
     while (pl.rows.length) {
         pl.deleteRow(0);
     }
     curr_chat = nm;
-    var lop = [];
-    for (var p in ch.posts) lop.push(p)
+    let lop = [];
+    // Fill the current list of posts.
+    for (const p in ch.posts) lop.push(p)
+    // Sort the new list of posts by the time of arrival.
     lop.sort((a, b) => ch.posts[a].when - ch.posts[b].when)
+    // Load all posts in the UI.
     lop.forEach((p) =>
         load_post_item(ch.posts[p])
     )
     load_chat_title(ch);
     setScenario("posts");
     document.getElementById("tremolaTitle").style.display = 'none';
-    // scroll to bottom:
+    // Scroll to bottom:
     e = document.getElementById('core')
     e.scrollTop = e.scrollHeight;
-    // update unread badge:
+    // Update unread badge:
     ch["lastRead"] = Date.now();
     persist();
-    document.getElementById(nm + '-badge').style.display = 'none' // is this necessary?
+    document.getElementById(nm + '-badge').style.display = 'none' // Is this necessary?
 }
 
+/**
+ * Sets the chat title to its given name and displays the member via their aliases below. Used in posts scenario.
+ * @param ch The {@link tremola}.chats element that represents the current chat.
+ */
 function load_chat_title(ch) {
-    var c = document.getElementById("conversationTitle"), bg, box;
+    const c = document.getElementById("conversationTitle");
     c.style.display = null;
-    c.classList = ch.forgotten ? ['gray'] : []
-    box = "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'><font size=+1><strong>" + escapeHTML(ch.alias) + "</strong></font></div>";
-    box += "<div style='color: black; text-overflow: ellipsis; overflow: hidden;'>" + escapeHTML(recps2display(ch.members)) + "</div></div>";
+    c.classList = ch.forgotten ? ['gray'] : []; // FIXME: Assigned expression type string[] | any[] is not assignable
+                                                //  to type DOMTokenList
+    let box = "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'>"
+        + "<font size=+1><strong>" + escapeHTML(ch.alias) + "</strong></font></div>";
+    box += "<div style='color: black; text-overflow: ellipsis; overflow: hidden;'>" +
+        escapeHTML(recps2display(ch.members)) + "</div></div>";
     c.innerHTML = box;
 }
 
+/**
+ * Loads the list of chats in the chats scenario. Chats are sorted by touch date.
+ */
 function load_chat_list() {
-    const meOnly = recps2nm([myId])
+    const meOnly = recps2nm([myId]);
     // console.log('meOnly', meOnly)
     document.getElementById('lst:chats').innerHTML = '';
-    load_chat_item(meOnly)
+    load_chat_item(meOnly);
     let lop = [];
+    // Load non-forgotten chats in sorted order (by touch date).
     for (let p in tremola.chats) {
         if (p !== meOnly && !tremola.chats[p]['forgotten'])
-            lop.push(p)
+            lop.push(p);
     }
     lop.sort((a, b) => tremola.chats[b]["touched"] - tremola.chats[a]["touched"])
     lop.forEach((p) =>
         load_chat_item(p)
     )
-    // forgotten chats: unsorted
+    // Load forgotten chats if settings dictate it, unsorted.
     if (!tremola.settings.hide_forgotten_conv)
-        for (var p in tremola.chats)
+        for (const p in tremola.chats)
             if (p !== meOnly && tremola.chats[p]['forgotten'])
                 load_chat_item(p)
 }
 
-function load_chat_item(nm) { // appends a button for conversation with name nm to the conv list
-    var cl, mem, item, bg, row, badge, badgeId, cnt;
+/**
+ * Puts a button in the chats list in the chats scenario. Loads the chat that it was given the internal name of.
+ * @param nm The internal name of the chat to add, generated with {@link recps2nm}.
+ */
+function load_chat_item(nm) {
+    let cl, mem, item, bg, row, badge, badgeId, cnt;
     cl = document.getElementById('lst:chats');
-    mem = recps2display(tremola.chats[nm].members)
+    mem = recps2display(tremola.chats[nm].members);
     item = document.createElement('div');
     item.style = "padding: 0px 5px 10px 5px; margin: 3px 3px 6px 3px;";
+    // Switch background depending on if the chat was forgotten.
     if (tremola.chats[nm].forgotten) bg = ' gray'; else bg = ' light';
-    row = "<button class='chat_item_button w100" + bg + "' onclick='load_chat(\"" + nm + "\");' style='overflow: hidden; position: relative;'>";
-    row += "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'>" + tremola.chats[nm].alias + "</div>";
-    row += "<div style='text-overflow: clip; overflow: ellipsis;'><font size=-2>" + escapeHTML(mem) + "</font></div></div>";
-    badgeId = nm + "-badge"
-    badge = "<div id='" + badgeId + "' style='display: none; position: absolute; right: 0.5em; bottom: 0.9em; text-align: center; border-radius: 1em; height: 2em; width: 2em; background: var(--red); color: white; font-size: small; line-height:2em;'>&gt;9</div>";
+    row = "<button class='chat_item_button w100" + bg + "' onclick='load_chat(\"" + nm + "\");' style='overflow: "
+        + "hidden; position: relative;'><div style='white-space: nowrap;'><div style='text-overflow: ellipsis; "
+        + "overflow: hidden;'>" + tremola.chats[nm].alias + "</div><div style='text-overflow: clip; "
+        + "overflow: ellipsis;'><font size=-2>" + escapeHTML(mem) + "</font></div></div>";
+    badgeId = nm + "-badge";
+    badge = "<div id='" + badgeId + "' style='display: none; position: absolute; right: 0.5em; bottom: 0.9em; "
+        + "text-align: center; border-radius: 1em; height: 2em; width: 2em; background: var(--red); color: "
+        + "white; font-size: small; line-height:2em;'>&gt;9</div>";
     row += badge + "</button>";
     row += ""
     item.innerHTML = row;
@@ -369,21 +430,29 @@ function load_chat_item(nm) { // appends a button for conversation with name nm 
     set_chats_badge(nm)
 }
 
+/**
+ * Loads the list of contacts in the contacts scenario. They are not inherently sorted, instead relying on their index
+ * (which is the public key).
+ */
 function load_contact_list() {
     document.getElementById("lst:contacts").innerHTML = '';
-    for (var id in tremola.contacts)
-        if (!tremola.contacts[id].forgotten)
+    for (const id in tremola.contacts)
+        if (!tremola.contacts[id].forgotten) // Load non-forgotten contacts.
             load_contact_item([id, tremola.contacts[id]]);
-    if (!tremola.settings.hide_forgotten_contacts)
-        for (var id in tremola.contacts) {
-            var c = tremola.contacts[id]
+    if (!tremola.settings.hide_forgotten_contacts) // Load forgotten contacts if the settings dictate it.
+        for (const id in tremola.contacts) {
+            const c = tremola.contacts[id]
             if (c.forgotten)
                 load_contact_item([id, c]);
         }
 }
 
-function load_contact_item(c) { // [ id, { "alias": "thealias", "initial": "T", "color": "#123456" } ] }
-    var row, item = document.createElement('div'), bg;
+/**
+ * This loads the provided contact into the contact list. Used in the contacts scenario.
+ * @param c The contact object, example: [id, {"alias": "<alias>", "initial": "<A>", "color": "<#123456>" }].
+ */
+function load_contact_item(c) {
+    let row, item = document.createElement('div'), bg;
     item.style = "padding: 0px 5px 10px 5px;";
     if (!("initial" in c[1])) {
         c[1]["initial"] = c[1].alias.substring(0, 1).toUpperCase();
@@ -394,12 +463,15 @@ function load_contact_item(c) { // [ id, { "alias": "thealias", "initial": "T", 
         persist();
     }
     // console.log("load_c_i", JSON.stringify(c[1]))
-    bg = c[1].forgotten ? ' gray' : ' light';
-    row = "<button class=contact_picture style='margin-right: 0.75em; background: " + c[1].color + ";'>" + c[1].initial + "</button>";
-    row += "<button class='chat_item_button" + bg + "' style='overflow: hidden; width: calc(100% - 4em);' onclick='show_contact_details(\"" + c[0] + "\");'>";
-    row += "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'>" + escapeHTML(c[1].alias) + "</div>";
-    row += "<div style='text-overflow: clip; overflow: ellipsis;'><font size=-2>" + c[0] + "</font></div></div></button>";
-    // var row  = "<td><button class=contact_picture></button><td style='padding: 5px;'><button class='contact_item_button light w100'>";
+    bg = c[1].forgotten ? ' gray' : ' light'; // Change background depending on whether the contact is forgotten.
+    row = "<button class=contact_picture style='margin-right: 0.75em; background: " + c[1].color + ";'>" + c[1].initial
+        + "</button><button class='chat_item_button" + bg + "' style='overflow: hidden; width: calc(100% - 4em);' "
+        + "onclick='show_contact_details(\"" + c[0] + "\");'><div style='white-space: nowrap;'>"
+        + "<div style='text-overflow: ellipsis; overflow: hidden;'>" + escapeHTML(c[1].alias) + "</div>"
+        + "<div style='text-overflow: clip; overflow: ellipsis;'><font size=-2>" + c[0]
+        + "</font></div></div></button>";
+    // var row  = "<td><button class=contact_picture></button><td style='padding: 5px;'>"
+    //     + "<button class='contact_item_button light w100'>";
     // row += escapeHTML(c[1].alias) + "<br><font size=-2>" + c[0] + "</font></button>";
     // console.log(row);
     item.innerHTML = row;
@@ -414,7 +486,8 @@ function fill_members() {
     let choices = '';
     for (let m in tremola.contacts) {
         choices += '<div style="margin-bottom: 10px;"><label><input type="checkbox" id="' + m;
-        choices += '" style="vertical-align: middle;"><div class="contact_item_button light" style="white-space: nowrap; width: calc(100% - 40px); padding: 5px; vertical-align: middle;">';
+        choices += '" style="vertical-align: middle;"><div class="contact_item_button light" '
+            + 'style="white-space: nowrap; width: calc(100% - 40px); padding: 5px; vertical-align: middle;">';
         choices += '<div style="text-overflow: ellipis; overflow: hidden;">' + escapeHTML(fid2display(m)) + '</div>';
         choices += '<div style="text-overflow: ellipis; overflow: hidden;"><font size=-2>' + m + '</font></div>';
         choices += '</div></label></div>\n';
@@ -422,12 +495,18 @@ function fill_members() {
     document.getElementById('lst:members').innerHTML = choices
     /*
       <div id='lst:members' style="display: none;margin: 10pt;">
-        <div style="margin-top: 10pt;"><label><input type="checkbox" id="toggleSwitches2" style="margin-right: 10pt;"><div class="contact_item_button light" style="display: inline-block;padding: 5pt;">Choice1<br>more text</div></label></div>
+        <div style="margin-top: 10pt;"><label><input type="checkbox" id="toggleSwitches2" style="margin-right: 10pt;">
+        <div class="contact_item_button light" style="display: inline-block;padding: 5pt;">Choice1<br>more text</div>
+        </label></div>
       </div>
     */
     document.getElementById(myId).checked = true;
 }
 
+/**
+ * Gets the shortname of the id provided and calls {@link show_contact_details_back} with <shortname>, id as parameters.
+ * @param id The SSB ID of the contact.
+ */
 function show_contact_details(id) {
     id2b32(id, 'show_contact_details_back')
 }
@@ -439,7 +518,9 @@ function show_contact_details_back(shortname, id) {
     var details = '';
     details += '<br><div>Shortname: &nbsp;' + shortname + ' </div>\n';
     details += '<br><div style="word-break: break-all;">SSB identity: &nbsp;<tt>' + id + '</tt></div>\n';
-    details += '<br><div class=settings style="padding: 0px;"><div class=settingsText>Forget this contact</div><div style="float: right;"><label class="switch"><input id="hide_contact" type="checkbox" onchange="toggle_forget_contact(this);"><span class="slider round"></span></label></div></div>'
+    details += '<br><div class=settings style="padding: 0px;"><div class=settingsText>Forget this contact</div><div '
+        + 'style="float: right;"><label class="switch"><input id="hide_contact" type="checkbox" '
+        + 'onchange="toggle_forget_contact();"><span class="slider round"></span></label></div></div>'
     document.getElementById('old_contact_details').innerHTML = details;
     document.getElementById('old_contact-overlay').style.display = 'initial';
     document.getElementById('overlay-bg').style.display = 'initial';
@@ -449,8 +530,11 @@ function show_contact_details_back(shortname, id) {
     overlayIsActive = true;
 }
 
-function toggle_forget_contact(e) {
-    var c = tremola.contacts[new_contact_id];
+/**
+ * Toggles the forgotten field of a contact, saves and reloads.
+ */
+function toggle_forget_contact() {
+    const c = tremola.contacts[new_contact_id];
     c.forgotten = !c.forgotten;
     persist();
     closeOverlay();
@@ -460,7 +544,7 @@ function toggle_forget_contact(e) {
 /**
  * Save a nickname for a user.
  * If not present, save its shortname (computed by the backend) as alias.
- * The backend calls the method {@link save_content_alias_back} directly
+ * The backend calls the method {@link save_content_alias_back} directly.
  */
 function save_content_alias() {
     let alias = document.getElementById('old_contact_alias').value;
@@ -470,6 +554,11 @@ function save_content_alias() {
         save_content_alias_back(alias, new_contact_id)
 }
 
+/**
+ * Saves the provided alias for the new_contact_id user, creates the contact in the process and saves it.
+ * @param alias {String} The selected alias, must not be empty.
+ * @param new_contact_id {String} The SSB ID of the contact. Looks like: @AA...AA=.ed25519
+ */
 function save_content_alias_back(alias, new_contact_id) {
     tremola.contacts[new_contact_id].alias = alias;
     tremola.contacts[new_contact_id].initial = alias.substring(0, 1).toUpperCase();
@@ -481,8 +570,8 @@ function save_content_alias_back(alias, new_contact_id) {
 
 function new_conversation() {
     // { "alias":"local notes (for my eyes only)", "posts":{}, "members":[myId], "touched": millis }
-    var recps = []
-    for (var m in tremola.contacts) {
+    let recps = []
+    for (const m in tremola.contacts) {
         if (document.getElementById(m).checked)
             recps.push(m);
     }
@@ -492,7 +581,7 @@ function new_conversation() {
         launch_snackbar("Too many recipients");
         return;
     }
-    var cid = recps2nm(recps)
+    const cid = recps2nm(recps)
     if (cid in tremola.chats) {
         if (tremola.chats[cid].forgotten) {
             tremola.chats[cid].forgotten = false;
@@ -501,7 +590,7 @@ function new_conversation() {
             launch_snackbar("Conversation already exists");
         return;
     }
-    var nm = recps2nm(recps);
+    const nm = recps2nm(recps);
     if (!(nm in tremola.chats)) {
         tremola.chats[nm] = {
             "alias": "Unnamed conversation", "posts": {},
@@ -527,10 +616,13 @@ function load_peer_list() {
             nm = ' / ' + tremola.contacts[nm].alias
         else
             nm = ''
-        row = "<button class='flat buttontext' style='border-radius: 25px; width: 50px; height: 50px; margin-right: 0.75em;" + color + "'><img src=img/signal.svg style='width: 50px; height: 50px; margin-left: -3px; margin-top: -3px; padding: 0px;'></button>";
-        row += "<button class='chat_item_button light' style='overflow: hidden; width: calc(100% - 4em);' onclick='show_peer_details(\"" + i + "\");'>";
-        row += "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'>" + tmp[0].substring(4) + nm + "</div>";
-        row += "<div style='text-overflow: clip; overflow: ellipsis;'><font size=-2>" + tmp[1].substring(4) + "</font></div></div></button>";
+        row = "<button class='flat buttontext' style='border-radius: 25px; width: 50px; height: 50px; "
+            + "margin-right: 0.75em;" + color + "'><img src=img/signal.svg style='width: 50px; height: 50px; "
+            + "margin-left: -3px; margin-top: -3px; padding: 0px;'></button><button class='chat_item_button light' "
+            + "style='overflow: hidden; width: calc(100% - 4em);' onclick='show_peer_details(\"" + i + "\");'>"
+            + "<div style='white-space: nowrap;'><div style='text-overflow: ellipsis; overflow: hidden;'>"
+            + tmp[0].substring(4) + nm + "</div><div style='text-overflow: clip; overflow: ellipsis;'><font size=-2>"
+            + tmp[1].substring(4) + "</font></div></div></button>";
         lst += '<div style="padding: 0px 5px 10px 5px;">' + row + '</div>';
         // console.log(row)
     }
@@ -541,7 +633,9 @@ function show_peer_details(id) {
     new_contact_id = "@" + id.split('~')[1].substring(4) + ".ed25519";
     // if (new_contact_id in tremola.constacts)
     //  return;
-    menu_edit("trust_wifi_peer", "Trust and Autoconnect<br>&nbsp;<br><strong>" + new_contact_id + "</strong><br>&nbsp;<br>Should this WiFi peer be trusted (and autoconnected to)? Also enter an alias for the peer - only you will see this alias", "?")
+    menu_edit("trust_wifi_peer", "Trust and Autoconnect<br>&nbsp;<br><strong>" + new_contact_id
+        + "</strong><br>&nbsp;<br>Should this WiFi peer be trusted (and autoconnected to)? "
+        + "Also enter an alias for the peer - only you will see this alias", "?")
 }
 
 function getUnreadCnt(nm) {
@@ -567,9 +661,15 @@ function set_chats_badge(nm) {
 
 // --- util
 
+/**
+ * Escapes special unicode characters to binary strings,
+ * TODO quality control: does this really work? Is this description accurate?
+ * @param s {String} The string to be encoded.
+ * @returns {string} The result with binary.
+ */
 function unicodeStringToTypedArray(s) {
-    var escstr = encodeURIComponent(s);
-    var binstr = escstr.replace(/%([0-9A-F]{2})/g, function (match, p1) {
+    const escstr = encodeURIComponent(s);
+    const binstr = escstr.replace(/%([0-9A-F]{2})/g, function (match, p1) {
         return String.fromCharCode('0x' + p1);
     });
     return binstr;
@@ -608,9 +708,8 @@ function recps2nm(rcps) {
 }
 
 /**
- * Takes a list of recipients and returns them as a human-readable string.
- * TODO write accurate description
- * @param rcps The recipients in the machine-readable form.
+ * Takes a machine-readable list of recipients and returns them as a list of concatenated aliases.
+ * @param rcps The recipients in the machine-readable form: @AA...AA=, aka FID.
  * @returns {string} Human-readable recipients list, enclosed in brackets.
  */
 function recps2display(rcps) {
@@ -723,7 +822,7 @@ function b2f_local_peer(p, status) { // wireless peer: online, offline, connecte
  * @param public_key The found public key of the person that was looked up.
  */
 function snackbar_lookup_back(shortname, public_key) {
-    launch_snackbar(shortname  + " : " + public_key)
+    launch_snackbar(shortname + " : " + public_key)
 }
 
 function b2f_new_contact_lookup(target_short_name, new_contact_id) {
