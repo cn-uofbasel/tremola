@@ -10,8 +10,13 @@ let curr_chat;
 let qr;
 // Contains the user's SSB ID.
 let myId;
-// List of peers in a local network.
-let localPeers = {}; // feedID ~ [isOnline, isConnected] - TF, TT, FT - FF means to remove this entry
+// List of peers in a local network.<br>
+// if (status === 'online') localPeers[p][0] = true<br>
+// if (status === 'offline') localPeers[p][0] = false<br>
+// if (status === 'connected') localPeers[p][1] = true<br>
+// if (status === 'disconnected') localPeers[p][1] = false <br>
+// feedID ~ [isOnline, isConnected] - TF, TT, FT - FF means to remove this entry
+let localPeers = {};
 // Variable whether the UI has to be redrawn or not.
 let must_redraw = false;
 // This variable keeps track what the edit_overlay was used for.
@@ -143,7 +148,7 @@ function menu_edit(target, title, text) {
 
 /**
  * Opens an edit-overlay to change the name of a conversation when selecting the "Rename" option in the top-right menu
- * in the posts scenario.
+ * in the posts scenario or when creating a new chat in the members scenario.
  */
 function menu_edit_convname() {
     menu_edit('convNameTarget',
@@ -234,7 +239,7 @@ function menu_forget_conv() {
 /**
  * Imports the secret ID of another device onto the current one.
  * Not functional, unused.
- * TODO make this work
+ * TODO make this work or remove it
  */
 function menu_import_id() {
     // backend('secret: XXX');
@@ -245,7 +250,7 @@ function menu_import_id() {
 /**
  * Not sure what this is for, probably fetches messages.
  * Not functional, unused.
- * TODO make this work
+ * TODO make this work or remove it
  */
 function menu_process_msgs() {
     launch_snackbar("Not functional at the moment.")
@@ -256,7 +261,7 @@ function menu_process_msgs() {
 /**
  * Adds a Pub via its address to the device.
  * Not functional, unused.
- * TODO make this work
+ * TODO make this work or remove it
  */
 function menu_add_pub() {
     launch_snackbar("Not functional at the moment.")
@@ -266,7 +271,7 @@ function menu_add_pub() {
 /**
  * Not sure what this is for, probably to export all data.
  * Not functional, unused.
- * TODO make this work
+ * TODO make this work or remove it
  */
 function menu_dump() {
     launch_snackbar("Not functional at the moment.")
@@ -431,8 +436,7 @@ function load_chat_item(nm) {
 }
 
 /**
- * Loads the list of contacts in the contacts scenario. They are not inherently sorted, instead relying on their index
- * (which is the public key).
+ * Loads the list of contacts in the contacts scenario. They are ordered by their creation date.
  */
 function load_contact_list() {
     document.getElementById("lst:contacts").innerHTML = '';
@@ -504,18 +508,26 @@ function fill_members() {
 }
 
 /**
+ * Used for opening the overlay to edit and view a contact's information. Called when pressing on a contact in the
+ * contacts scenario.
  * Gets the shortname of the id provided and calls {@link show_contact_details_back} with <shortname>, id as parameters.
- * @param id The SSB ID of the contact.
+ * @param id {String} The SSB ID of the contact, example: @AA...AA=.ed25519
  */
 function show_contact_details(id) {
     id2b32(id, 'show_contact_details_back')
 }
 
+/**
+ * Opens the overlay to edit and view a contact's information.
+ * FIXME Works on mobile, does not work in browser.
+ * @param shortname {String} Generated string by {@link id2b32}, represents hash of long public key.
+ * @param id {String} The SSB ID of the contact, example: @AA...AA=.ed25519
+ */
 function show_contact_details_back(shortname, id) {
-    var c = tremola.contacts[id];
+    const c = tremola.contacts[id];
     new_contact_id = id;
     document.getElementById('old_contact_alias').value = c['alias'];
-    var details = '';
+    let details = '';
     details += '<br><div>Shortname: &nbsp;' + shortname + ' </div>\n';
     details += '<br><div style="word-break: break-all;">SSB identity: &nbsp;<tt>' + id + '</tt></div>\n';
     details += '<br><div class=settings style="padding: 0px;"><div class=settingsText>Forget this contact</div><div '
@@ -568,20 +580,30 @@ function save_content_alias_back(alias, new_contact_id) {
     closeOverlay();
 }
 
+/**
+ * Generates a new conversation in chats. Called when clicking on the checkmark button in the members scenario.
+ * If the chat exists but is forgotten, unforgets it and touches it. If it already exists, launches error snackbar.
+ * FIXME updates title when creating new chats in chats scenario, prompting two titles.
+ */
 function new_conversation() {
     // { "alias":"local notes (for my eyes only)", "posts":{}, "members":[myId], "touched": millis }
+    // Contains selected contacts.
     let recps = []
     for (const m in tremola.contacts) {
         if (document.getElementById(m).checked)
             recps.push(m);
     }
+    // In case that the user unselects themselves, adds oneself to conversation.
     if (recps.indexOf(myId) < 0)
         recps.push(myId);
+    // Check that not too many people are selected.
     if (recps.length > 7) {
         launch_snackbar("Too many recipients");
         return;
     }
+    // Contains the internal name of the chat.
     const cid = recps2nm(recps)
+    // Chat already exists: if forgotten unforget, otherwise display error.
     if (cid in tremola.chats) {
         if (tremola.chats[cid].forgotten) {
             tremola.chats[cid].forgotten = false;
@@ -590,29 +612,33 @@ function new_conversation() {
             launch_snackbar("Conversation already exists");
         return;
     }
+    // TODO remove this variable, is the same as cid above.
     const nm = recps2nm(recps);
-    if (!(nm in tremola.chats)) {
+    if (!(nm in tremola.chats)) { // Create new chat, save.
         tremola.chats[nm] = {
             "alias": "Unnamed conversation", "posts": {},
             "members": recps, "touched": Date.now()
         };
         persist();
-    } else
-        tremola.chats[nm]["touched"] = Date.now()
+    } else // Touch it if it was forgotten
+        tremola.chats[nm]["touched"] = Date.now();
     load_chat_list();
-    setScenario("chats")
-    curr_chat = nm
-    menu_edit_convname()
+    setScenario("chats");
+    curr_chat = nm;
+    menu_edit_convname();
 }
 
+/**
+ * Displays {@link localPeers} as a list in the connex scenario.
+ */
 function load_peer_list() {
-    var i, lst = '', row;
+    let i, lst = '';
     for (i in localPeers) {
-        var x = localPeers[i], color, row, nm, tmp;
-        if (x[1]) color = ' background: var(--lightGreen);'; else color = '';
+        let x = localPeers[i], color, row, nm, tmp;
+        if (x[1]) color = ' background: var(--lightGreen);'; else color = ''; // Make it light green if connected
         tmp = i.split('~');
-        nm = '@' + tmp[1].split(':')[1] + '.ed25519'
-        if (nm in tremola.contacts)
+        nm = '@' + tmp[1].split(':')[1] + '.ed25519';
+        if (nm in tremola.contacts) // Already known and in contacts, use alias.
             nm = ' / ' + tremola.contacts[nm].alias
         else
             nm = ''
@@ -629,26 +655,41 @@ function load_peer_list() {
     document.getElementById('the:connex').innerHTML = lst;
 }
 
+/**
+ * Displays the possibility of adding someone to their own contacts from {@link localPeers} when pressing on an entry in
+ * the connex scenario.
+ * @param id The SSB ID of the peer.
+ */
 function show_peer_details(id) {
     new_contact_id = "@" + id.split('~')[1].substring(4) + ".ed25519";
-    // if (new_contact_id in tremola.constacts)
+    // if (new_contact_id in tremola.contacts)
     //  return;
     menu_edit("trust_wifi_peer", "Trust and Autoconnect<br>&nbsp;<br><strong>" + new_contact_id
-        + "</strong><br>&nbsp;<br>Should this WiFi peer be trusted (and autoconnected to)? "
+        + "</strong><br>&nbsp;<br>Should this Wi-Fi peer be trusted (and autoconnected to)? "
         + "Also enter an alias for the peer - only you will see this alias", "?")
 }
 
+/**
+ * Returns the number of unread messages in a chat.
+ * @param nm {String} The internal name of a chat, generated with {@link recps2nm}.
+ * @returns {number} The number of unread messages.
+ */
 function getUnreadCnt(nm) {
-    var c = tremola.chats[nm], cnt = 0;
-    for (var p in c.posts) {
+    let c = tremola.chats[nm], cnt = 0;
+    for (const p in c.posts) {
         if (c.posts[p].when > c.lastRead)
             cnt++;
     }
     return cnt;
 }
 
+/**
+ * Shows a badge with a number on it on a chat, representing how many unread messages there are. Used in the chats
+ * scenario.
+ * @param nm {String} The internal chat name, generated with {@link recps2nm}.
+ */
 function set_chats_badge(nm) {
-    var e = document.getElementById(nm + '-badge'), cnt;
+    let e = document.getElementById(nm + '-badge'), cnt;
     cnt = getUnreadCnt(nm)
     if (cnt === 0) {
         e.style.display = 'none';
@@ -663,16 +704,15 @@ function set_chats_badge(nm) {
 
 /**
  * Escapes special unicode characters to binary strings,
- * TODO quality control: does this really work? Is this description accurate?
+ * TODO quality control: does this really work? Is this description accurate? Is this secure?
  * @param s {String} The string to be encoded.
  * @returns {string} The result with binary.
  */
 function unicodeStringToTypedArray(s) {
     const escstr = encodeURIComponent(s);
-    const binstr = escstr.replace(/%([0-9A-F]{2})/g, function (match, p1) {
+    return escstr.replace(/%([\dA-F]{2})/g, function (match, p1) {
         return String.fromCharCode('0x' + p1);
     });
-    return binstr;
 }
 
 /**
@@ -756,9 +796,9 @@ function backend(cmdStr) {
     else if (cmdStr[0] === 'exportSecret')
         b2f_showSecret('secret_of_id_which_is@AAAA==.ed25519')
     else if (cmdStr[0] === 'priv:post') {
-        var draft = atob(cmdStr[1])
+        const draft = atob(cmdStr[1])
         cmdStr.splice(0, 2)
-        var e = {
+        const e = {
             'header': {
                 'tst': Date.now(),
                 'ref': Math.floor(1000000 * Math.random()),
@@ -825,6 +865,11 @@ function snackbar_lookup_back(shortname, public_key) {
     launch_snackbar(shortname + " : " + public_key)
 }
 
+/**
+ * TODO seems to be unused. If you know what this is for, please update this documentation or remove it.
+ * @param target_short_name
+ * @param new_contact_id
+ */
 function b2f_new_contact_lookup(target_short_name, new_contact_id) {
     console.log(`new contact lookup ${target_short_name}, ${new_contact_id}`);
     id2b32(new_contact_id, 'snackbar_lookup_back')
@@ -835,8 +880,8 @@ function b2f_new_contact_lookup(target_short_name, new_contact_id) {
         "initial": target_short_name.substring(0, 1).toUpperCase(),
         "color": colors[Math.floor(colors.length * Math.random())]
     };
-    var recps = [myId, new_contact_id];
-    var nm = recps2nm(recps);
+    const recps = [myId, new_contact_id];
+    const nm = recps2nm(recps);
     tremola.chats[nm] = {
         "alias": "Chat w/ " + target_short_name, "posts": {}, "members": recps,
         "touched": Date.now(), "lastRead": 0
@@ -845,31 +890,43 @@ function b2f_new_contact_lookup(target_short_name, new_contact_id) {
     menu_redraw();
 }
 
-function b2f_new_event(e) { // incoming SSB log event: we get map with three entries
+/**
+ * Called when an SSB log even is incoming, we receive an object with three fields: header, confid, public.
+ * Typically called from backend. This object is added to the respective chat.
+ * @param e Event object. Looks like this, example is mocking what the frontend expects:
+ * 'header': {'tst': Date.now(), 'ref': Math.floor(1000000 * Math.random()), 'fid': myId}, 'confid': {'type': 'post',
+ * 'text': draft, 'recps': cmdStr}, 'public': {}
+ */
+function b2f_new_event(e) {
     // console.log('hdr', JSON.stringify(e.header))
     // console.log('pub', JSON.stringify(e.public))
     // console.log('cfd', JSON.stringify(e.confid))
     if (e.confid && e.confid.type === 'post') {
-        var i, conv_name = recps2nm(e.confid.recps);
-        if (!(conv_name in tremola.chats)) { // create new conversation if needed
+        let i, conv_name = recps2nm(e.confid.recps);
+        if (!(conv_name in tremola.chats)) { // Create new conversation if needed.
             tremola.chats[conv_name] = {
                 "alias": "Unnamed conversation", "posts": {},
                 "members": e.confid.recps, "touched": Date.now(), "lastRead": 0
             };
             load_chat_list()
         }
-        for (i in e.confid.recps) {
-            var id, r = e.confid.recps[i];
+        for (i in e.confid.recps) { // If it was a group message and not all recipients are known, add them to contacts.
+            let id, r = e.confid.recps[i];
             if (!(r in tremola.contacts))
                 id2b32(r, 'b2f_new_event_back')
-
         }
-        var ch = tremola.chats[conv_name];
-        if (!(e.header.ref in ch.posts)) { // new post
+        const ch = tremola.chats[conv_name];
+        if (!(e.header.ref in ch.posts)) { // New post, add to posts list (chat).
             // var d = new Date(e.header.tst);
             // d = d.toDateString() + ' ' + d.toTimeString().substring(0,5);
-            var p = {"key": e.header.ref, "from": e.header.fid, "body": e.confid.text, "when": e.header.tst};
-            ch["posts"][e.header.ref] = p;
+            ch["posts"][e.header.ref] = {
+                "key": e.header.ref,
+                "from": e.header.fid,
+                "body": e.confid.text,
+                "when": e.header.tst // FIXME setting it to the time of sending might lead to messages being
+                                     //  considered read, if the user visited the chat without connection between the
+                                     //  the time of sending and reception.
+            };
             if (ch["touched"] < e.header.tst)
                 ch["touched"] = e.header.tst
             if (curr_scenario === "posts" && curr_chat === conv_name) {
@@ -886,6 +943,12 @@ function b2f_new_event(e) { // incoming SSB log event: we get map with three ent
     must_redraw = true;
 }
 
+/**
+ * Upon receiving a group message where not all recipients are known, this function is called for each unknown.
+ * Then, a contact is created for each, with their shortname as alias. Typically called from backend.
+ * @param shortname The shortname of the user's public key.
+ * @param publicKey The actual public key of the user.
+ */
 function b2f_new_event_back(shortname, publicKey) {
     tremola.contacts[publicKey] = {
         "alias": shortname, "initial": shortname.substring(0, 1).toUpperCase(),
@@ -894,11 +957,20 @@ function b2f_new_event_back(shortname, publicKey) {
     load_contact_list()
 }
 
+/**
+ * TODO seems to be unused. If you know what this is for, please update this documentation or remove it.
+ * @param contact_str
+ */
 function b2f_new_contact(contact_str) { // '{"alias": "nickname", "id": "fid", 'img' : base64, date}'
-    var c = JSON.parse(contact_str)
+    const c = JSON.parse(contact_str)
     load_contact_item(c)
 }
 
+/**
+ * Called when "Export secret key" button is pressed in settings. Goes to previous scenario and displays secret key as
+ * QR code. Typically called from backend.
+ * @param json {String} The stringified version of the exported secret key.
+ */
 function b2f_showSecret(json) {
     setScenario(prev_scenario);
     generateQR(json)
@@ -906,7 +978,8 @@ function b2f_showSecret(json) {
 
 /**
  * Sets the app's ID to the provided one, loads the tremola object from browser storage, resets and initializes frontend
- * if tremola object is empty, loads settings, loads chats and contacts and goes to chats scenario.
+ * if tremola object is empty, loads settings, loads chats and contacts and goes to chats scenario. Normally called from
+ * the backend.
  * @param id The ID that tremola should use as one's own.
  */
 function b2f_initialize(id) {
