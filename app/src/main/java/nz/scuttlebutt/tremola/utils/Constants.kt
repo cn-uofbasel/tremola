@@ -32,7 +32,10 @@ class Constants {
          * */
         const val EBT_FORCE_FRONTIER_INTERVAL = 30L
 
-        /** The default value of bytes to get with each frontier. TODO more accurate description */
+        /**
+         * The default value of bytes (?) to get with each frontier. Unused.
+         * TODO more accurate description or remove.
+         * */
         const val frontierWindow = 86400000
     }
 }
