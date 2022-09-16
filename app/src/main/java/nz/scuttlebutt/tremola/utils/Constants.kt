@@ -5,22 +5,22 @@ import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.decodeHex
 class Constants {
     companion object {
         /** Default listening port for SSB connections on TCP over IPv4. */
-        const val SSB_IPV4_TCPPORT = 8008
+        const val SSB_IPV4_TCP_PORT = 8008
 
         /** Default destination port for LAN announcements (broadcasts) on UDP over IPv4. */
-        const val SSB_IPV4_UDPPORT = 8008
+        const val SSB_IPV4_UDP_PORT = 8008
 
-        /** Default destination port for look up (broadcast). */
-        const val LOOKUP_IPV4_UDPPORT = 8009
+        /** Default destination port for lookup (broadcast). */
+        const val LOOKUP_IPV4_UDP_PORT = 8009
 
         /** The network identifier used for SSB's normal network. */
-        val SSB_NETWORKIDENTIFIER =
+        val SSB_NETWORK_IDENTIFIER =
             "d4a1cb88a66f02f8db635ce26441cc5dac1b08420ceaac230839b755845a9ffb".decodeHex()
 
         /** The default interval between UDP broadcasts in milliseconds. */
         const val UDP_BROADCAST_INTERVAL = 3000L
 
-        /** The default interval between look up broadcasts in milliseconds. */
+        /** The default interval between lookup broadcasts in milliseconds. */
         const val LOOKUP_INTERVAL = 3000L
 
         /** The default interval between Wi-Fi discoveries in seconds. */
@@ -36,6 +36,6 @@ class Constants {
          * The default value of bytes (?) to get with each frontier. Unused.
          * TODO more accurate description or remove.
          * */
-        const val frontierWindow = 86400000
+        const val FRONTIER_WINDOW = 86400000
     }
 }
