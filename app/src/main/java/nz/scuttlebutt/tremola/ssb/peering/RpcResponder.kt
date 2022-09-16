@@ -17,7 +17,7 @@ import java.net.Socket
 class RpcResponder(
     val tremolaState: TremolaState,
     val sock: Socket,
-    networkIdentifier: ByteArray = Constants.SSB_NETWORKIDENTIFIER,
+    networkIdentifier: ByteArray = Constants.SSB_NETWORK_IDENTIFIER,
 ) : RpcLoop() {
     // val fidStr = tremolaState.idStore.identity.toRef()
     // val me = tremolaState.idStore.identity

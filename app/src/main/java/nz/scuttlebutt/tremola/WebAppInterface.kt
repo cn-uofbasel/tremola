@@ -36,7 +36,7 @@ class WebAppInterface(private val act: Activity, val tremolaState: TremolaState,
         val args = s.split(" ")
         when (args[0]) {
             "onBackPressed" -> { // When 'back' is pressed, will close app
-                (act as MainActivity)._onBackPressed()
+                (act as MainActivity).trueBackPress()
             }
             "ready" -> { // Initialisation, send localID to frontend
                 eval("b2f_initialize(\"${tremolaState.idStore.identity.toRef()}\")")

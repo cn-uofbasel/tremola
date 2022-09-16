@@ -17,7 +17,7 @@ import java.io.OutputStream
 class SHSClient(
     myId: SSBid,
     serverKey: ByteArray,
-    networkIdentifier: ByteArray = Constants.SSB_NETWORKIDENTIFIER
+    networkIdentifier: ByteArray = Constants.SSB_NETWORK_IDENTIFIER
 ) : SHS(myId, networkIdentifier) {
 
     init {
