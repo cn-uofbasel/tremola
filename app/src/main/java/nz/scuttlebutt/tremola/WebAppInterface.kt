@@ -334,7 +334,6 @@ class WebAppInterface(
      * This takes a LogEntry [event] and passes it to the frontend via an eval statement with the
      * appropriately formatted JSON string.
      * @param event The LogEntry that was just created and should go to the frontend.
-
      */
     private fun sendEventToFrontend(event: LogEntry) {
         // Log.d("MSG added", event.ref.toString())
