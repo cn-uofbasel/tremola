@@ -325,8 +325,8 @@ class WebAppInterface(
      */
     fun rxEvent(entry: LogEntry) {
         // When we come here we assume that the event is legit (chaining and signature).
-        tremolaState.addLogEntry(entry)       // Persist the log entry.
-        sendEventToFrontend(entry)            // Notify the local app.
+        tremolaState.addLogEntry(entry) // Persist the log entry.
+        sendEventToFrontend(entry) // Notify the local app.
         tremolaState.peers.newLogEntry(entry) // Stream it to peers we are currently connected to.
     }
 
