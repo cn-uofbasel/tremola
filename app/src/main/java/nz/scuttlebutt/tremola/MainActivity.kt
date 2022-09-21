@@ -57,7 +57,7 @@ class MainActivity : Activity() {
 
     /**
      * Part of the Android standard library, called when the app is launched.
-     * @property savedInstanceState The saved state of the app. Unused.
+     * @param savedInstanceState The saved state of the app. Unused.
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -225,7 +225,11 @@ class MainActivity : Activity() {
 
     /**
      * Called when a child [Activity] is closed. This is used after the camera is opened to scan a
-     * QR code. Handles the scanned data. TODO read
+     * QR code. Handles the scanned data.
+     * @param requestCode The requestCode of the ActivityResult. This is used to check that the
+     * result is related to this Activity.
+     * @param resultCode Whether the Activity was successful.
+     * @param data Contains the return data of the Activity.
      */
     override fun onActivityResult(
         requestCode: Int,
@@ -234,11 +238,11 @@ class MainActivity : Activity() {
     ) {
         Log.e("ACT_RESULT", "Result for $resultCode")
         val result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
-        if (result != null) { // Normal result code on return
+        if (result != null) { // Normal result code on return.
             Log.d("activityResult", result.toString())
-            val cmd: String = if (result.contents == null) { // No data returned, scan aborted
+            val cmd: String = if (result.contents == null) { // No data returned, scan aborted.
                 "qr_scan_failure();"
-            } else { // Scan successful
+            } else { // Scan successful.
                 "qr_scan_success('" + result.contents + "');"
             }
             tremolaState.wai.eval(cmd)
@@ -318,13 +322,13 @@ class MainActivity : Activity() {
      * Tries to close the network sockets first, then sets new ones up.
      */
     private fun mkSockets() {
-        try { // Close broadcast and lookup sockets
+        try { // Close broadcast and lookup sockets.
             broadcastSocket?.close()
             lookupSocket?.close()
         } catch (e: Exception) {
             Log.e("mkSockets", ": ${e.localizedMessage}")
         }
-        try { // Reopen broadcast socket
+        try { // Reopen broadcast socket.
             broadcastSocket = DatagramSocket(
                 Constants.SSB_IPV4_UDP_PORT, // Where to listen
                 InetAddress.getByName("0.0.0.0")
