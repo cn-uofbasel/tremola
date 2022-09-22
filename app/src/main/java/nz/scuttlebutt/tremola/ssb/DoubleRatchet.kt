@@ -5,6 +5,9 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.goterl.lazysodium.LazySodiumAndroid
 import com.goterl.lazysodium.SodiumAndroid
+import com.goterl.lazysodium.interfaces.AEAD
+import com.goterl.lazysodium.interfaces.DiffieHellman
+import com.goterl.lazysodium.interfaces.SecretBox
 import com.goterl.lazysodium.utils.Key
 import com.goterl.lazysodium.utils.KeyPair
 import org.json.JSONObject
@@ -32,6 +35,8 @@ import java.util.*
  *  <li> How do we keep the state during a restart?
  *  <li> What happens if one of the participants sends a first message while a first message from
  *  another party is underway?
+ *  <li> Where is it necessary to cast from Ed25519 to Curve25519?
+ *  <li> Where do we need to correct key length?
  *  </ul>
  * @property dhSent Contains the Diffie-Hellman ratchet key pair (both public and private key). Of
  * this pair, only the public key is sent, the private key is kept secret.
@@ -131,7 +136,6 @@ class DoubleRatchet {
      * @param associatedData The signed but unencrypted data that came with the message. Base64
      * encoded.
      * @return A stringified JSON object signifying the decrypted message.
-     * // TODO Once we know the details of the AEAD return value, update the @return.
      */
     @RequiresApi(Build.VERSION_CODES.O)
     fun decryptMessage(header: String, encodedCiphertext: String, associatedData: String): String {
@@ -262,6 +266,37 @@ class DoubleRatchet {
         private val lazySodium = LazySodiumAndroid(SodiumAndroid(), StandardCharsets.UTF_8)
 
         /**
+         * This object is a cast of the lazySodium object to use its lazy functions for
+         * Diffie-Hellman key exchanges.
+         */
+        private val diffieHellmanLazy: DiffieHellman.Lazy = lazySodium
+
+        /**
+         * This object is a cast of the lazySodium object to use its lazy functions for general
+         * encryption (AEAD).
+         */
+        private val secretBoxLazy: SecretBox.Lazy = lazySodium
+
+        /**
+         * This object is a cast of the lazySodium object to use its lazy functions for AEAD
+         * encryption.
+         */
+        private val aeadLazy: AEAD.Lazy = lazySodium
+
+        /**
+         * The object to encode Strings or ByteArrays to Base64 Strings.
+         */
+        @RequiresApi(Build.VERSION_CODES.O)
+        private val base64Encoder = Base64.getEncoder()
+
+        /**
+         * The object to decode Base64 Strings to ByteArrays or Strings.
+         */
+        @RequiresApi(Build.VERSION_CODES.O)
+        private val base64Decoder = Base64.getDecoder()
+
+
+        /**
          * Generates a Diffie-Hellman keypair. Uses elliptic curve primitive (Curve25519).
          * @return A new Diffie-Hellman keypair.
          */
@@ -277,8 +312,7 @@ class DoubleRatchet {
          * @return The newly generated key, a shared secret.
          */
         private fun diffieHellman(dhPair: KeyPair, dhPublicKey: Key): Key {
-            // TODO Implement. Return value is stand-in.
-            return lazySodium.cryptoKxKeypair().publicKey
+            return diffieHellmanLazy.cryptoScalarMult(dhPublicKey, dhPair.secretKey)
         }
 
         /**
@@ -305,12 +339,13 @@ class DoubleRatchet {
 
         /**
          * Encrypts the [plaintext] with the given [messageKey]. Also authenticates the
-         * [associatedData], but does not encrypt it. Uses the AEAD encryption primitive.
-         * // TODO More precision on AEAD implementation.
+         * [associatedData], but does not encrypt it. Uses the AEAD encryption
+         * primitive with the XChaCha20-Poly1305 construction.
          * @param messageKey The key to encrypt and authenticate the data with.
          * @param plaintext The message to encrypt and authenticate, a stringified JSON object.
          * @param associatedData The data to authenticate, but not encrypt. Base64 encoded.
-         * @return The encrypted and authenticated data as a Base64 encoded string.
+         * @return A stringified JSON object which contains the nonce and the ciphertext, both
+         * Base64 encoded.
          */
         @RequiresApi(Build.VERSION_CODES.O)
         private fun encrypt(
@@ -318,29 +353,50 @@ class DoubleRatchet {
             plaintext: String,
             associatedData: String
         ): String {
-            // TODO Implement. Return value is stand-in.
-            return Base64.getEncoder()
-                .encodeToString("hi $plaintext $associatedData $messageKey".toByteArray())
+            val nonce = lazySodium.nonce(SecretBox.NONCEBYTES)
+            // TODO Alternative version if the AEAD should not work as intended.
+            // secretBoxLazy.cryptoSecretBoxEasy(plaintext, nonce, messageKey)
+            val ciphertext = aeadLazy.encrypt(
+                plaintext,
+                associatedData,
+                nonce,
+                messageKey,
+                AEAD.Method.XCHACHA20_POLY1305_IETF
+            )
+            val messageObject = JSONObject()
+            messageObject.put(CIPHERTEXT, base64Encoder.encode(ciphertext.toByteArray()))
+            messageObject.put(NONCE, base64Encoder.encode(nonce))
+            return messageObject.toString()
         }
 
         /**
-         * Decrypts the [encodedCiphertext] with the given [messageKey]. Also checks the authentication
-         * of the [associatedData], which is not encrypted. Uses the AEAD encryption primitive.
-         * // TODO More precision on AEAD implementation.
+         * Decrypts the [encryptedMessage] with the given [messageKey]. Also checks the
+         * authentication of the [associatedData], which is not encrypted. Uses the AEAD encryption
+         * primitive with the XChaCha20-Poly1305 construction.
          * @param messageKey The key to decrypt and authenticate the data with.
-         * @param encodedCiphertext The message to decrypt and authenticate. Base64 encoded.
+         * @param encryptedMessage The JSON object that contains the nonce and the message to
+         * decrypt and authenticate. Both are Base64 encoded.
          * @param associatedData The data to authenticate, but not decrypt. Base64 encoded.
          * @return The decrypted data as a stringified JSON object.
          */
         @RequiresApi(Build.VERSION_CODES.O)
         private fun decrypt(
             messageKey: Key,
-            encodedCiphertext: String,
+            encryptedMessage: String,
             associatedData: String
         ): String {
-            // TODO Implement. Return value is stand-in.
-            return Base64.getEncoder()
-                .encodeToString("hello $encodedCiphertext $associatedData $messageKey".toByteArray())
+            val messageObject = JSONObject(encryptedMessage)
+            val nonce = base64Decoder.decode(messageObject.getString(NONCE))
+            val ciphertext = base64Decoder.decode(messageObject.getString(CIPHERTEXT)).toString()
+            // TODO Alternative version if the AEAD should not work as intended.
+            // secretBoxLazy.cryptoSecretBoxEasy(ciphertext, nonce, messageKey)
+            return aeadLazy.decrypt(
+                ciphertext,
+                associatedData,
+                nonce,
+                messageKey,
+                AEAD.Method.XCHACHA20_POLY1305_IETF
+            )
         }
 
         /**
@@ -352,13 +408,18 @@ class DoubleRatchet {
          * @return The stringified JSON object of the public key (Base64 encoded) and the two
          * numbers.
          */
+        @RequiresApi(Build.VERSION_CODES.O)
         private fun header(
             dhPair: KeyPair,
             previousChainLength: Int,
             messageNumber: Int
         ): String {
-            // TODO Implement. Return value is stand-in.
-            return "hey ${dhPair.publicKey} $previousChainLength $messageNumber"
+            val headerObject = JSONObject()
+            val encodedPublicKey = base64Encoder.encode(dhPair.publicKey.asBytes)
+            headerObject.put(DH_PUBLIC, encodedPublicKey)
+            headerObject.put(PREVIOUS_CHAIN_LENGTH, previousChainLength)
+            headerObject.put(MESSAGE_NUMBER, messageNumber)
+            return headerObject.toString()
         }
 
         /**
@@ -369,9 +430,9 @@ class DoubleRatchet {
          * previousChainLength and the messageNumber. Stringified JSON object, unencoded.
          * @returns [associatedData] + Base64([header])
          */
+        @RequiresApi(Build.VERSION_CODES.O)
         private fun concatenate(associatedData: String, header: String): String {
-            // TODO Implement. Return value is stand-in.
-            return "greetings $associatedData $header"
+            return associatedData + base64Encoder.encodeToString(header.toByteArray())
         }
 
         /**
@@ -394,6 +455,13 @@ class DoubleRatchet {
 
         /** Used as identifier for messageNumber in JSONObjects. */
         private const val MESSAGE_NUMBER = "messageNumber"
+
+        /** Used as identifier for ciphertext in JSONObjects. */
+        private const val CIPHERTEXT = "ciphertext"
+
+        /** Used as identifier for nonce in JSONObjects. */
+        private const val NONCE = "nonce"
+
 
     }
 
