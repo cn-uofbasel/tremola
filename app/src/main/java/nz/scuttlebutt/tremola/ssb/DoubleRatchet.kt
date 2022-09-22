@@ -1,11 +1,13 @@
 package nz.scuttlebutt.tremola.ssb
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.goterl.lazysodium.LazySodiumAndroid
 import com.goterl.lazysodium.SodiumAndroid
 import com.goterl.lazysodium.utils.Key
 import com.goterl.lazysodium.utils.KeyPair
+import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.util.*
 
@@ -25,7 +27,12 @@ import java.util.*
  * If you want to utilize this in combination with SSB, you can call the constructors with special
  * values which are used by SSB. Alternatively, you can use the SSBDoubleRatchet class which already
  * handles most of the cases.
- * TODO How do we keep the state during a restart?
+ * TODO
+ *  <ul>
+ *  <li> How do we keep the state during a restart?
+ *  <li> What happens if one of the participants sends a first message while a first message from
+ *  another party is underway?
+ *  </ul>
  * @property dhSent Contains the Diffie-Hellman ratchet key pair (both public and private key). Of
  * this pair, only the public key is sent, the private key is kept secret.
  * @property dhReceived Contains the received public key for the Diffie-Hellman ratchet.
@@ -52,22 +59,28 @@ class DoubleRatchet {
 
     /**
      * This constructor is used when you are the person sending the first message.
-     * @param sharedSecret The shared secret. This is typically derived by
-     * TODO Implement.
+     * @param sharedSecret The shared secret. This is typically derived via a Diffie-Hellman key
+     * exchange or in a SSB setting by doing a scalar multiplication of the sender's secret key
+     * with the recipient's public key.
+     * @param dhReceivedParameter The recipient's Diffie-Hellman public key.
      */
     constructor(sharedSecret: Key, dhReceivedParameter: Key) {
         dhSent = generateDH()
         dhReceived = dhReceivedParameter
-        val rootKeyResult =
+        val rootRatchetResult =
             keyDerivationFunctionRootKey(sharedSecret, diffieHellman(dhSent, dhReceived!!))
-        rootKey = rootKeyResult.secretKey
-        chainKeySending = rootKeyResult.publicKey
+        rootKey = rootRatchetResult.secretKey
+        chainKeySending = rootRatchetResult.publicKey
     }
 
 
     /**
      * This constructor is used when you are the person receiving the first message.
-     * TODO Implement.
+     * @param sharedSecret The shared secret. This is typically derived via a Diffie-Hellman key
+     * exchange or in a SSB setting by doing a scalar multiplication of the sender's secret key
+     * with the recipient's public key (see SSB Handshake).
+     * @param dhSentParameter The keypair that makes up your Diffie-Hellman ratchet. The sender
+     * knows the public key already.
      */
     constructor(sharedSecret: Key, dhSentParameter: KeyPair) {
         dhSent = dhSentParameter
@@ -80,59 +93,164 @@ class DoubleRatchet {
     /**
      * This function takes a plaintext of a message and encrypts it using the double ratchet
      * algorithm to derive the key. The output is Byte64 encoded.
+     * @param plaintext The plaintext of the message to send. It will be encrypted and signed.
+     * @param associatedData The Base64 encoded associated data to sign but not encrypt.
+     * @return The stringified JSON object with the fields header and encodedEncryptedMessage. Only the
+     * second is Base64 encoded.
      */
-    fun encryptMessage(plaintext: String): String {
-        // TODO Implement
-        return "hello $plaintext"
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun encryptMessage(plaintext: String, associatedData: String): String {
+        // This should never happen (except with a very specific race condition where we are both
+        // receiving and sending at the same time, maybe), but just in case we throw an exception
+        // for debugging.
+        if (chainKeySending == null) {
+            Log.e("DoubleRatchet:encryptMessage", "chainKeySending is missing.")
+            throw Exception("DoubleRatchet:encryptMessage, chainKeySending is missing.")
+        }
+        val chainRatchetResult =
+            keyDerivationFunctionChainKey(chainKeySending!!)
+        chainKeySending = chainRatchetResult.secretKey
+        val messageKey = chainRatchetResult.publicKey
+        val header = header(dhSent, previousChainLength, messageNumberSending)
+        messageNumberSending += 1
+        val jsonObject = JSONObject()
+        jsonObject.put(HEADER, header)
+        val encodedEncryptedMessage =
+            encrypt(messageKey, plaintext, concatenate(associatedData, header))
+        jsonObject.put(ENCODED_ENCRYPTED_MESSAGE, encodedEncryptedMessage)
+        return jsonObject.toString()
     }
 
     /**
      * This function takes a ciphertext of a message and decrypts it using the double ratchet
      * algorithm to derive the key. The output is Byte64 encoded.
+     * @param header The stringified JSON object of the public Diffie-Hellman key (Base64 encoded)
+     * and the two numbers representing the length of the previous receiving chain and the
+     * message's number in the current receiving chain.
+     * @param encodedCiphertext The encrypted text that was received. Base64 encoded.
+     * @param associatedData The signed but unencrypted data that came with the message. Base64
+     * encoded.
+     * @return A stringified JSON object signifying the decrypted message.
+     * // TODO Once we know the details of the AEAD return value, update the @return.
      */
-    fun decryptMessage(ciphertext: String): String {
-        // TODO Implement
-        return "hi $ciphertext"
-
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun decryptMessage(header: String, encodedCiphertext: String, associatedData: String): String {
+        // Try decoding with a key we skipped.
+        val plaintext = trySkippedMessageKeys(header, encodedCiphertext, associatedData)
+        if (plaintext != null) {
+            return plaintext
+        }
+        val headerObject = JSONObject(header)
+        val encodedDiffieHellman = headerObject.getString(DH_PUBLIC)
+        val messageDiffieHellman = Key.fromBase64String(encodedDiffieHellman)
+        if (messageDiffieHellman != dhReceived) { // New receiving chain was started.
+            skipMessageKeys(headerObject.getInt(PREVIOUS_CHAIN_LENGTH))
+            dhRatchet(header)
+        }
+        skipMessageKeys(headerObject.getInt(MESSAGE_NUMBER))
+        // This should never happen (except with a very specific race condition where we are both
+        // receiving and sending at the same time, maybe), but just in case we throw an exception
+        // for debugging.
+        if (chainKeyReceiving == null) {
+            Log.e("DoubleRatchet:decryptMessage", "chainKeyReceiving is missing.")
+            throw Exception("DoubleRatchet:decryptMessage, chainKeyReceiving is missing.")
+        }
+        // Do a ratchet step and decrypt.
+        val chainRatchetResult = keyDerivationFunctionChainKey(chainKeyReceiving!!)
+        chainKeyReceiving = chainRatchetResult.secretKey
+        val messageKey = chainRatchetResult.publicKey
+        messageNumberReceiving += 1
+        return decrypt(messageKey, encodedCiphertext, concatenate(associatedData, header))
     }
 
     /**
-     * This class is used as the key of the [messageKeysSkipped] field.
-     * This is necessary since Java does not accept tuples for its dictionary type class.
-     * @param publicKey The public key of the Diffie-Hellman ratchet (of the other person).
-     * @param messageNumber The number of the message in the receiving chain of that public key.
-     * TODO Remove once it is replaced with JSON stringified object.
-     */
-    private class SkippedMessageIdentifier(val publicKey: Key, val messageNumber: Int) {
-
-        /**
-         * This function is necessary since objects of this class are used as keys for Hashtables.
-         * If this was not implemented, the hashcode would be based on the object's reference.
-         * Thus, two different objects with the same contents would be different keys.
-         * We want them to generate identical hashcodes though, which is why this class only uses
-         * the content of the object, not the reference.
-         * Since the Key object does not implement the hashCode function, we encode its byte array
-         * in hexadecimal and set it to lowercase to avoid the same problem from above.
-         */
-        override fun hashCode(): Int {
-            return Objects.hash(this.publicKey.asHexString.lowercase(), this.messageNumber)
+     * This function checks if the given message can be decrypted with a key we skipped previously.
+     * @param header The stringified JSON object of the public Diffie-Hellman key (Base64 encoded)
+     * and the two numbers representing the length of the previous receiving chain and the
+     * message's number in the current receiving chain.
+     * @param encodedCiphertext The encrypted text that was received. Base64 encoded.
+     * @param associatedData The signed but unencrypted data that came with the message. Base64
+     * encoded.
+     * @return A stringified JSON object signifying the decrypted message.     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun trySkippedMessageKeys(
+        header: String,
+        encodedCiphertext: String,
+        associatedData: String
+    ): String? {
+        val headerObject = JSONObject(header)
+        val skippedMessageIdentifierObject = JSONObject()
+        skippedMessageIdentifierObject.put(DH_PUBLIC, headerObject.getString(DH_PUBLIC))
+        skippedMessageIdentifierObject.put(MESSAGE_NUMBER, headerObject.getString(MESSAGE_NUMBER))
+        val skippedMessageIdentifier = skippedMessageIdentifierObject.toString()
+        return if (skippedMessageIdentifier in messageKeysSkipped) {
+            val messageKey = messageKeysSkipped.remove(skippedMessageIdentifier)
+            decrypt(messageKey!!, encodedCiphertext, concatenate(associatedData, header))
+        } else {
+            null
         }
+    }
 
-        /**
-         * This function is necessary since objects of this class are used as keys for Hashtables.
-         * If this was not implemented, the equality would be based on the object's reference.
-         * We do not seek reference equality but content equality.
-         * @param other If this object is not null, of type SkippedMessageIdentifier and has
-         * identical values in its fields as the this object, returns true. Otherwise, returns
-         * false.
-         */
-        override fun equals(other: Any?): Boolean {
-            return if (other != null && other is SkippedMessageIdentifier) {
-                (this.publicKey == other.publicKey) && (this.messageNumber == other.messageNumber)
-            } else {
-                false
+    /**
+     * Stores all message keys in [messageKeysSkipped] in the current receiving ratchet up to but
+     * not including [until].
+     * Will throw an exception if too many keys are skipped at a time, hinting at a DoS attack.
+     * @param until After the message keys are skipped, this will be the value that
+     * [messageNumberReceiving] will have. All keys in between are stored in [messageKeysSkipped].
+     */
+    private fun skipMessageKeys(until: Int) {
+        if (messageNumberReceiving + MAX_SKIP < until) { // Number of messages to skip is too big.
+            Log.e("DoubleRatchet:skipMessageKeys", "Too many skipped messages.")
+            throw Exception("DoubleRatchet:skipMessageKeys, too many skipped messages.")
+        }
+        // True unless this is the first message received.
+        if (chainKeyReceiving != null) {
+            while (messageNumberReceiving < until) {
+                val chainRatchetResult = keyDerivationFunctionChainKey(chainKeyReceiving!!)
+                chainKeyReceiving = chainRatchetResult.secretKey
+                val messageKey = chainRatchetResult.publicKey
+                val skippedMessageIdentifierObject = JSONObject()
+                skippedMessageIdentifierObject.put(DH_PUBLIC, dhReceived)
+                skippedMessageIdentifierObject.put(MESSAGE_NUMBER, messageNumberReceiving)
+                val skippedMessageIdentifier = skippedMessageIdentifierObject.toString()
+                messageKeysSkipped[skippedMessageIdentifier] = messageKey
+                messageNumberReceiving += 1
             }
         }
+    }
+
+    /**
+     * This performs two ratchet steps for the Diffie-Hellman (Root) ratchet. It creates two new
+     * ratchets, one for the receiving and one for the sending chain. For each new ratchet it
+     * performs one step.
+     * @param header The stringified JSON object of the public Diffie-Hellman key (Base64 encoded)
+     * and the two numbers representing the length of the previous receiving chain and the
+     * message's number in the current receiving chain.
+     */
+    private fun dhRatchet(header: String) {
+        previousChainLength = messageNumberSending
+        messageNumberSending = 0
+        messageNumberReceiving = 0
+        val headerObject = JSONObject(header)
+        val encodedDiffieHellman = headerObject.getString(DH_PUBLIC)
+        dhReceived = Key.fromBase64String(encodedDiffieHellman)
+        if (dhReceived == null) { // Something went wrong when decoding the key.
+            Log.e("DoubleRatchet:dhRatchet", "dhReceived is null.")
+            throw Exception("DoubleRatchet:dhRatchet, dhReceived is null.")
+        }
+        if (dhReceived!!.asHexString == "") { // Something went wrong when decoding the key.
+            Log.e("DoubleRatchet:dhRatchet", "dhReceived is empty.")
+            throw Exception("DoubleRatchet:dhRatchet, dhReceived is empty.")
+        }
+        var rootRatchetResult =
+            keyDerivationFunctionRootKey(rootKey, diffieHellman(dhSent, dhReceived!!))
+        rootKey = rootRatchetResult.secretKey
+        chainKeyReceiving = rootRatchetResult.publicKey
+        dhSent = generateDH()
+        rootRatchetResult =
+            keyDerivationFunctionRootKey(rootKey, diffieHellman(dhSent, dhReceived!!))
+        rootKey = rootRatchetResult.secretKey
+        chainKeySending = rootRatchetResult.publicKey
     }
 
     companion object {
@@ -206,23 +324,23 @@ class DoubleRatchet {
         }
 
         /**
-         * Decrypts the [ciphertext] with the given [messageKey]. Also checks the authentication
+         * Decrypts the [encodedCiphertext] with the given [messageKey]. Also checks the authentication
          * of the [associatedData], which is not encrypted. Uses the AEAD encryption primitive.
          * // TODO More precision on AEAD implementation.
          * @param messageKey The key to decrypt and authenticate the data with.
-         * @param ciphertext The message to decrypt and authenticate. Base64 encoded.
+         * @param encodedCiphertext The message to decrypt and authenticate. Base64 encoded.
          * @param associatedData The data to authenticate, but not decrypt. Base64 encoded.
          * @return The decrypted data as a stringified JSON object.
          */
         @RequiresApi(Build.VERSION_CODES.O)
         private fun decrypt(
             messageKey: Key,
-            ciphertext: String,
+            encodedCiphertext: String,
             associatedData: String
         ): String {
             // TODO Implement. Return value is stand-in.
             return Base64.getEncoder()
-                .encodeToString("hello $ciphertext $associatedData $messageKey".toByteArray())
+                .encodeToString("hello $encodedCiphertext $associatedData $messageKey".toByteArray())
         }
 
         /**
@@ -260,7 +378,23 @@ class DoubleRatchet {
          * The maximum number of skipped messages per chain. Prevents a malicious sender from
          * triggering an excessive recipient computation.
          * */
-        private val MAX_SKIP = 100
+        private const val MAX_SKIP = 100
+
+        /** Used as identifier for dhPublic in JSONObjects. */
+        private const val DH_PUBLIC = "dhPublic"
+
+        /** Used as identifier for encodedEncryptedMessage in JSONObjects. */
+        private const val ENCODED_ENCRYPTED_MESSAGE = "encodedEncryptedMessage"
+
+        /** Used as identifier for header in JSONObjects. */
+        private const val HEADER = "header"
+
+        /** Used as identifier for previousChainLength in JSONObjects. */
+        private const val PREVIOUS_CHAIN_LENGTH = "previousChainLength"
+
+        /** Used as identifier for messageNumber in JSONObjects. */
+        private const val MESSAGE_NUMBER = "messageNumber"
+
     }
 
 }
