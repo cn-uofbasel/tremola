@@ -378,7 +378,7 @@ class DoubleRatchet {
          * The maximum number of skipped messages per chain. Prevents a malicious sender from
          * triggering an excessive recipient computation.
          * */
-        private const val MAX_SKIP = 100
+        private const val MAX_SKIP = 1000
 
         /** Used as identifier for dhPublic in JSONObjects. */
         private const val DH_PUBLIC = "dhPublic"
