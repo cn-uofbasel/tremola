@@ -1,4 +1,4 @@
-package nz.scuttlebutt.tremola.ssb
+package nz.scuttlebutt.tremola.doubleRatchet
 
 import android.os.Build
 import android.util.Log
@@ -300,19 +300,22 @@ class DoubleRatchet {
          * Generates a Diffie-Hellman keypair. Uses elliptic curve primitive (Curve25519).
          * @return A new Diffie-Hellman keypair.
          */
-        private fun generateDH(): KeyPair {
+        internal fun generateDH(): KeyPair {
             return lazySodium.cryptoKxKeypair()
         }
 
         /**
          * Takes a public and a private Diffie-Hellman key to produce the shared secret.
          * Uses the elliptic curve primitive (Curve25519).
+         * NOTE: The order of arguments is swapped to what the cryptoScalarMult() defines as the
+         *  correct order. The order reflects the one defined in the SSB protocol documentation.
+         *  Establishing a shared secret only works this way, no idea why.
          * @param dhPair Our own Diffie-Hellman key pair.
          * @param dhPublicKey The other person's Diffie-Hellman public key.
          * @return The newly generated key, a shared secret.
          */
-        private fun diffieHellman(dhPair: KeyPair, dhPublicKey: Key): Key {
-            return diffieHellmanLazy.cryptoScalarMult(dhPublicKey, dhPair.secretKey)
+        internal fun diffieHellman(dhPair: KeyPair, dhPublicKey: Key): Key {
+            return diffieHellmanLazy.cryptoScalarMult(dhPair.secretKey, dhPublicKey)
         }
 
         /**
