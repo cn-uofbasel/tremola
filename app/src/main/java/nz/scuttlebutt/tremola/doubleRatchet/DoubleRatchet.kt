@@ -5,15 +5,13 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.goterl.lazysodium.LazySodiumAndroid
 import com.goterl.lazysodium.SodiumAndroid
-import com.goterl.lazysodium.interfaces.AEAD
-import com.goterl.lazysodium.interfaces.DiffieHellman
-import com.goterl.lazysodium.interfaces.Helpers
-import com.goterl.lazysodium.interfaces.SecretBox
+import com.goterl.lazysodium.interfaces.*
 import com.goterl.lazysodium.utils.Key
 import com.goterl.lazysodium.utils.KeyPair
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.util.*
+import kotlin.math.ceil
 
 /**
  * This class is responsible for encrypting and decrypting messages using the double ratchet
@@ -287,6 +285,12 @@ class DoubleRatchet {
         private val aeadLazy: AEAD.Lazy = lazySodium
 
         /**
+         * This object is a cast of the lazySodium object to use its lazy functions for\
+         * authentication.
+         */
+        private val authLazy: Auth.Lazy = lazySodium
+
+        /**
          * This object is a cast of the lazySodium object to use its lazy functions for helper
          * functions.
          */
@@ -329,13 +333,18 @@ class DoubleRatchet {
 
         /**
          * The key derivation function used for the root chain. Uses primitive HKDF with SHA-512.
+         * Source: RFC 5869.
          * @param rootKey The root key of the root chain.
          * @param dhOutput The output of the Diffie-Hellman key exchange.
          * @return A new keypair, a root key as secretKey and a chain key as publicKey.
          */
         private fun keyDerivationFunctionRootKey(rootKey: Key, dhOutput: Key): KeyPair {
-            // TODO Implement. Return value is stand-in.
-            return lazySodium.cryptoKxKeypair()
+            val hkdfExtracted = hkdfExtract(rootKey, dhOutput)
+            val info = "TremolaDoubleRatchetKeyDerivationFunctionRootKey"
+            val hkdfExpanded = hkdfExpand(hkdfExtracted, info, 32 + 32).asBytes
+            val newRootKey = Key.fromBytes(hkdfExpanded.sliceArray(0..31))
+            val newChainKey = Key.fromBytes(hkdfExpanded.sliceArray(32..64))
+            return KeyPair(newChainKey, newRootKey)
         }
 
         /**
@@ -345,8 +354,12 @@ class DoubleRatchet {
          * @return A new keypair, a chain key as secretKey and a message key as publicKey.
          */
         private fun keyDerivationFunctionChainKey(chainKey: Key): KeyPair {
-            // TODO Implement. Return value is stand-in.
-            return lazySodium.cryptoKxKeypair()
+            // Input is chosen as constant as recommended within the Signal documentation.
+            val newMessageHex = authLazy.cryptoAuthHMACSha(Auth.Type.SHA512, 1.toString(), chainKey)
+            val newMessageKey = Key.fromHexString(newMessageHex)
+            val newChainHex = authLazy.cryptoAuthHMACSha(Auth.Type.SHA512, 2.toString(), chainKey)
+            val newChainKey = Key.fromHexString(newChainHex)
+            return KeyPair(newMessageKey, chainKey)
         }
 
         /**
@@ -448,6 +461,54 @@ class DoubleRatchet {
         @RequiresApi(Build.VERSION_CODES.O)
         private fun concatenate(associatedData: String, header: String): String {
             return associatedData + base64Encoder.encodeToString(header.toByteArray())
+        }
+
+        /**
+         * Takes an input and a salt and extracts a pseudorandom key from it.
+         * @param salt Prevents the same input from creating the same key twice by being unique.
+         * @param inputKeyingMaterial What should be used for the generation of the key.
+         * @return A pseudorandom key based on the input material, hexadecimal encoding.
+         */
+        private fun hkdfExtract(salt: Key, inputKeyingMaterial: Key): String {
+            // We are using inputKeyMaterial as input, not key, as stated in the RFC.
+            return authLazy.cryptoAuthHMACSha(
+                Auth.Type.SHA512,
+                inputKeyingMaterial.asBytes.toString(StandardCharsets.UTF_8),
+                salt
+            )
+        }
+
+
+        /**
+         * Takes a pseudorandom key and extracts another key out of it of the correct length.
+         * @param pseudorandomKey A hexadecimal encoded key which is not predictable.
+         * @param info Application specific info.
+         * @param outputLength The length in bytes that the output keying material should have.
+         * TODO The allocation of the output array and filling it can be optimized.
+         */
+        private fun hkdfExpand(pseudorandomKey: String, info: String, outputLength: Int): Key {
+            val hashSizeBytes = 512 / 8
+            val numberOfHashes = ceil(outputLength.toDouble() / hashSizeBytes).toInt()
+            val totalHashOutput = MutableList(numberOfHashes + 1) { ByteArray(hashSizeBytes) }
+            totalHashOutput[0] = "".toByteArray(StandardCharsets.UTF_8) // empty
+            for (i in 1..numberOfHashes) {
+                val hexHashOutput =
+                    authLazy.cryptoAuthHMACSha(
+                        Auth.Type.SHA512,
+                        totalHashOutput[i - 1].toString(StandardCharsets.UTF_8)
+                                + info + i.toChar(),
+                        Key.fromHexString(pseudorandomKey)
+                    )
+                val byteHashOutput = helpersLazy.sodiumHex2Bin(hexHashOutput)
+                totalHashOutput[i] = byteHashOutput
+            }
+            val outputArray = ByteArray(outputLength)
+            for (i in 0..outputLength) {
+                val listIndex = 1 + i / hashSizeBytes
+                val byteArrayIndex = i % hashSizeBytes
+                outputArray[i] = totalHashOutput[listIndex][byteArrayIndex]
+            }
+            return Key.fromBytes(outputArray)
         }
 
         /**
