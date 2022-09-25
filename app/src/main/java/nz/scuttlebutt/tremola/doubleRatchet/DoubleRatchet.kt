@@ -7,6 +7,7 @@ import com.goterl.lazysodium.LazySodiumAndroid
 import com.goterl.lazysodium.SodiumAndroid
 import com.goterl.lazysodium.interfaces.AEAD
 import com.goterl.lazysodium.interfaces.DiffieHellman
+import com.goterl.lazysodium.interfaces.Helpers
 import com.goterl.lazysodium.interfaces.SecretBox
 import com.goterl.lazysodium.utils.Key
 import com.goterl.lazysodium.utils.KeyPair
@@ -136,6 +137,8 @@ class DoubleRatchet {
      * @param associatedData The signed but unencrypted data that came with the message. Base64
      * encoded.
      * @return A stringified JSON object signifying the decrypted message.
+     * @throws javax.crypto.AEADBadTagException If the verification of associatedData with the
+     * ciphertext fails.
      */
     @RequiresApi(Build.VERSION_CODES.O)
     fun decryptMessage(header: String, encodedCiphertext: String, associatedData: String): String {
@@ -284,13 +287,19 @@ class DoubleRatchet {
         private val aeadLazy: AEAD.Lazy = lazySodium
 
         /**
-         * The object to encode Strings or ByteArrays to Base64 Strings.
+         * This object is a cast of the lazySodium object to use its lazy functions for helper
+         * functions.
+         */
+        private val helpersLazy: Helpers.Lazy = lazySodium
+
+        /**
+         * The object to encode Strings or ByteArrays to Base64 ByteArrays.
          */
         @RequiresApi(Build.VERSION_CODES.O)
         private val base64Encoder = Base64.getEncoder()
 
         /**
-         * The object to decode Base64 Strings to ByteArrays or Strings.
+         * The object to decode Base64 ByteArrays to ByteArrays or Strings.
          */
         @RequiresApi(Build.VERSION_CODES.O)
         private val base64Decoder = Base64.getDecoder()
@@ -345,56 +354,59 @@ class DoubleRatchet {
          * [associatedData], but does not encrypt it. Uses the AEAD encryption
          * primitive with the XChaCha20-Poly1305 construction.
          * @param messageKey The key to encrypt and authenticate the data with.
-         * @param plaintext The message to encrypt and authenticate, a stringified JSON object.
+         * @param plaintext The message to encrypt and authenticate, any string.
          * @param associatedData The data to authenticate, but not encrypt. Base64 encoded.
          * @return A stringified JSON object which contains the nonce and the ciphertext, both
-         * Base64 encoded.
+         * Base64 encoded. Also contains the associatedData, base64 encoded.
          */
         @RequiresApi(Build.VERSION_CODES.O)
-        private fun encrypt(
+        internal fun encrypt(
             messageKey: Key,
             plaintext: String,
             associatedData: String
         ): String {
             val nonce = lazySodium.nonce(SecretBox.NONCEBYTES)
-            // TODO Alternative version if the AEAD should not work as intended.
-            // secretBoxLazy.cryptoSecretBoxEasy(plaintext, nonce, messageKey)
-            val ciphertext = aeadLazy.encrypt(
+            val hexCiphertext = aeadLazy.encrypt(
                 plaintext,
                 associatedData,
                 nonce,
                 messageKey,
                 AEAD.Method.XCHACHA20_POLY1305_IETF
             )
+            val byteCiphertext = helpersLazy.sodiumHex2Bin(hexCiphertext)
+            val encodedCiphertext =
+                base64Encoder.encode(byteCiphertext).toString(StandardCharsets.UTF_8)
             val messageObject = JSONObject()
-            messageObject.put(CIPHERTEXT, base64Encoder.encode(ciphertext.toByteArray()))
-            messageObject.put(NONCE, base64Encoder.encode(nonce))
+            messageObject.put(CIPHERTEXT, encodedCiphertext)
+            messageObject.put(NONCE, base64Encoder.encode(nonce).toString(StandardCharsets.UTF_8))
+            messageObject.put(ASSOCIATED_DATA, associatedData)
             return messageObject.toString()
         }
 
         /**
-         * Decrypts the [encryptedMessage] with the given [messageKey]. Also checks the
+         * Decrypts the [encryptedMessageJSON] with the given [messageKey]. Also checks the
          * authentication of the [associatedData], which is not encrypted. Uses the AEAD encryption
          * primitive with the XChaCha20-Poly1305 construction.
          * @param messageKey The key to decrypt and authenticate the data with.
-         * @param encryptedMessage The JSON object that contains the nonce and the message to
-         * decrypt and authenticate. Both are Base64 encoded.
+         * @param encryptedMessageJSON The JSON object string that contains the nonce and the
+         * message to decrypt and authenticate. Both are Base64 encoded.
          * @param associatedData The data to authenticate, but not decrypt. Base64 encoded.
-         * @return The decrypted data as a stringified JSON object.
+         * @return The decrypted data of the ciphertext.
+         * @throws javax.crypto.AEADBadTagException If the verification of associatedData with the
+         * ciphertext fails.
          */
         @RequiresApi(Build.VERSION_CODES.O)
-        private fun decrypt(
+        internal fun decrypt(
             messageKey: Key,
-            encryptedMessage: String,
+            encryptedMessageJSON: String,
             associatedData: String
         ): String {
-            val messageObject = JSONObject(encryptedMessage)
+            val messageObject = JSONObject(encryptedMessageJSON)
             val nonce = base64Decoder.decode(messageObject.getString(NONCE))
-            val ciphertext = base64Decoder.decode(messageObject.getString(CIPHERTEXT)).toString()
-            // TODO Alternative version if the AEAD should not work as intended.
-            // secretBoxLazy.cryptoSecretBoxEasy(ciphertext, nonce, messageKey)
+            val byteCiphertext = base64Decoder.decode(messageObject.getString(CIPHERTEXT))
+            val hexEncodedCiphertext = helpersLazy.sodiumBin2Hex(byteCiphertext)
             return aeadLazy.decrypt(
-                ciphertext,
+                hexEncodedCiphertext,
                 associatedData,
                 nonce,
                 messageKey,
@@ -460,12 +472,13 @@ class DoubleRatchet {
         private const val MESSAGE_NUMBER = "messageNumber"
 
         /** Used as identifier for ciphertext in JSONObjects. */
-        private const val CIPHERTEXT = "ciphertext"
+        internal const val CIPHERTEXT = "ciphertext"
 
         /** Used as identifier for nonce in JSONObjects. */
         private const val NONCE = "nonce"
 
-
+        /** Used as identifier for associatedData in JSONObjects. */
+        internal const val ASSOCIATED_DATA = "associatedData"
     }
 
 }
