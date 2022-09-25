@@ -3,6 +3,7 @@ package nz.scuttlebutt.tremola.doubleRatchet
 import com.goterl.lazysodium.LazySodiumJava
 import com.goterl.lazysodium.SodiumJava
 import com.goterl.lazysodium.interfaces.AEAD
+import com.goterl.lazysodium.interfaces.Auth
 import com.goterl.lazysodium.utils.Key
 import org.json.JSONObject
 import org.junit.Test
@@ -158,6 +159,20 @@ class DoubleRatchetLocalTest {
         assert(text == decodedString)
     }
 
+    /**
+     * Test that the HMAC function used produces the correct output length.
+     */
+    @Test
+    fun hmacHasCorrectLength() {
+        val key = authLazy.cryptoAuthHMACShaKeygen(Auth.Type.SHA512)
+        val hmacOutput = authLazy.cryptoAuthHMACSha(Auth.Type.SHA512, "It's a trap!", key)
+        println(hmacOutput)
+        val correctLength = 512 / 8 * 2 // Total bits to byte to hex
+        assert(hmacOutput.length == correctLength)
+    }
+
+    // TODO Test KDFs.
+
     companion object {
         /**
          * This contains the object which does the entire crypto. It calls the native libSodium
@@ -171,6 +186,12 @@ class DoubleRatchetLocalTest {
          * encryption.
          */
         private val aeadLazy: AEAD.Lazy = lazySodium
+
+        /**
+         * This object is a cast of the lazySodium object to use its lazy functions for
+         * authentication.
+         */
+        private val authLazy: Auth.Lazy = lazySodium
 
         /**
          * The object to encode Strings or ByteArrays to Base64 ByteArrays.
