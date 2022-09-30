@@ -15,25 +15,26 @@ import kotlin.math.ceil
 
 /**
  * This class is responsible for encrypting and decrypting messages using the double ratchet
- * algorithm defined by the Signal Protocol. It uses LazySodiumAndroid for the cryptographic
- * primitives.
+ * algorithm defined by the Signal Protocol.
+ * For general usage, see the test class.
+ * It uses LazySodiumAndroid for the cryptographic primitives.
  * It consists of three individual ratchets, the Diffie-Hellman ratchet, the sending and the
  * receiving ratchet.
  * This implementation does not utilize header encryption, although that would be a possible upgrade
  * to the privacy of the users.
  * Keep in mind: This implementation is general purpose. It is slightly different from the official
  * documentation in that it tries to use the cryptographic libraries also used in SSB to make it
- * easier for the two to work together. It also avoids using ByteArrays, instead relying on Base64
+ * easier for the two to work together. It also avoids passing ByteArrays, instead relying on Base64
  * encoded strings. This uses more space than the ByteArrays, but is harder to mess up. Furthermore,
- * it uses stringified JSON objects in a lot of places to facilitate passing multiple values.
- * If you want to utilize this in combination with SSB, you can call the constructors with special
- * values which are used by SSB. Alternatively, you can use the SSBDoubleRatchet class which already
- * handles most of the cases.
+ * it uses stringified JSON objects in a lot of places to facilitate passing multiple values. This
+ * could also be changed to use different object each time, but seems to create a lot of boilerplate
+ * code.
+ * If you want to utilize this in combination with SSB, you can use the SSBDoubleRatchet class
+ * instead, which contains instructions on how to properly initialize the object.
  * TODO
  *  <ul>
  *  <li> What happens if one of the participants sends a first message while a first message from
  *  another party is underway?
- *  <li> Where is it necessary to cast from Ed25519 to Curve25519?
  *  <li> Where do we need to correct key length?
  *  <li> Should most JSON objects be replaced with tailor-made objects?
  *  </ul>
@@ -50,8 +51,8 @@ import kotlin.math.ceil
  * ratchet's public key and the message number in the respective chain, in a stringified JSON
  * object.
  */
-class DoubleRatchet {
-    private var dhSent: KeyPair // TODO Initialize with SSB ID?
+open class DoubleRatchet {
+    private var dhSent: KeyPair
     private var dhReceived: Key?
     private var rootKey: Key
     private var chainKeySending: Key?
@@ -63,6 +64,9 @@ class DoubleRatchet {
 
     /**
      * This constructor is used when you are the person sending the first message.
+     * If you are using this with SSB: The long term identity keys are Ec25519 keys. They have to be
+     * converted to Curve25519 via the function convertKeyPairEd25519ToCurve25519 on the sender's
+     * side, who will then send you the
      * @param sharedSecret The shared secret. This is typically derived via a Diffie-Hellman key
      * exchange or in a SSB setting by doing a scalar multiplication of the sender's secret key
      * with the recipient's public key.
@@ -135,7 +139,6 @@ class DoubleRatchet {
         messageNumberSending = jsonObject.getInt(MESSAGE_NUMBER_SENDING)
         messageNumberReceiving = jsonObject.getInt(MESSAGE_NUMBER_RECEIVING)
         previousChainLength = jsonObject.getInt(PREVIOUS_CHAIN_LENGTH)
-        println()
         val messageKeysSkippedJSONObject = jsonObject.get(MESSAGE_KEYS_SKIPPED) as JSONObject
         messageKeysSkipped = Hashtable<String, Key>(messageKeysSkippedJSONObject.length())
         for (key in messageKeysSkippedJSONObject.keys()) {
@@ -405,7 +408,7 @@ class DoubleRatchet {
          * implementation when used.
          */
         @JvmStatic
-        private val lazySodium = LazySodiumAndroid(SodiumAndroid(), StandardCharsets.UTF_8)
+        protected val lazySodium = LazySodiumAndroid(SodiumAndroid(), StandardCharsets.UTF_8)
 
         /**
          * This object is a cast of the lazySodium object to use its lazy functions for
@@ -712,5 +715,4 @@ class DoubleRatchet {
         /** Used as identifier for messageKeysSkipped in JSONObjects. */
         private const val MESSAGE_KEYS_SKIPPED = "messageKeysSkipped"
     }
-
 }
