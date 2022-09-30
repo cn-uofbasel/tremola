@@ -78,8 +78,6 @@ class SSBDoubleRatchet : DoubleRatchet {
         fun ssbIDToCurve(ssbID: SSBid): KeyPair {
             val ed25519PublicKey = Key.fromBytes(ssbID.signingKey)
             val ed25519SecretKey = Key.fromBytes(ssbID.verifyKey)
-            println("edPublicKeyLength = ${ed25519PublicKey.asBytes.size}")
-            println("edSecretKeyLength = ${ed25519SecretKey.asBytes.size}")
 
             // Once again, the labels of the arguments of KeyPair are wrong.
             // The order of secret and public key is inverted for the conversion function.
