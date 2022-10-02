@@ -741,10 +741,13 @@ function escapeHTML(str) {
  * Takes a list of SSB IDs, sorts them, concatenates them and removes all .ed25519.
  * Usually used to derive an internal name for a chat or a contact.
  * @param rcps {[String]} An array of SSB IDs.
- * @returns {String} The initial IDs, sorted, concatenated with the .ed25519 removed.
+ * @returns {String} The initial IDs, sorted, concatenated with the .ed25519 removed. Looks like:
+ * "@A..A=@B..B=@C..C="
  */
 function recps2nm(rcps) {
-    return rcps.sort().join('').replace(/.ed25519/g, '')
+    const name = rcps.sort().join('').replace(/.ed25519/g, '')
+    console.log(name)
+    return name
 }
 
 /**
