@@ -1,6 +1,7 @@
 package nz.scuttlebutt.tremola.doubleRatchet
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.goterl.lazysodium.exceptions.SodiumException
 import com.goterl.lazysodium.interfaces.DiffieHellman
@@ -8,6 +9,8 @@ import com.goterl.lazysodium.interfaces.Sign
 import com.goterl.lazysodium.utils.Key
 import com.goterl.lazysodium.utils.KeyPair
 import nz.scuttlebutt.tremola.ssb.core.SSBid
+import java.nio.charset.StandardCharsets
+import java.util.*
 
 /**
  * A specialized [DoubleRatchet] for use with the SSB protocol.
@@ -71,6 +74,12 @@ class SSBDoubleRatchet : DoubleRatchet {
         private val signNative: Sign.Native = lazySodium
 
         /**
+         * The object to encode Strings or ByteArrays to Base64 ByteArrays.
+         */
+        @RequiresApi(Build.VERSION_CODES.O)
+        private val base64Encoder = Base64.getEncoder()
+
+        /**
          * Takes an [SSBid] and returns a [KeyPair] transformed from Ed25519 to Curve25519.
          * @param ssbID An SSBid object, containing a pair of keys in Ed25519.
          * @return A [KeyPair] in Curve25519, transformed from the input.
@@ -92,7 +101,13 @@ class SSBDoubleRatchet : DoubleRatchet {
          * @return The Curve25519 equivalent of your correspondent's key.
          * @throws SodiumException If the key could not be converted.
          */
+        @RequiresApi(Build.VERSION_CODES.O)
         fun publicEDKeyToCurve(publicEDKey: Key): Key {
+            Log.d(
+                "SSBDoubleRatchet",
+                "Called with key " + base64Encoder.encode(publicEDKey.asBytes)
+                    .toString(StandardCharsets.UTF_8)
+            )
             val numOfBytes: Int = DiffieHellman.SCALARMULT_CURVE25519_BYTES
             val edByteArray = publicEDKey.asBytes
             val curveByteArray = ByteArray(numOfBytes)
@@ -100,7 +115,18 @@ class SSBDoubleRatchet : DoubleRatchet {
             if (result) {
                 return Key.fromBytes(curveByteArray)
             } else {
-                throw SodiumException("Could not convert public key.")
+                Log.e("SSBDoubleRatchet", "publicEDKeyToCurve: No result from conversion.")
+                Log.e("SSBDoubleRatchet", "publicEDKeyToCurve: Was called with :")
+                Log.e(
+                    "SSBDoubleRatchet",
+                    "publicEDKeyToCurve: " + base64Encoder.encode(publicEDKey.asBytes)
+                        .toString(StandardCharsets.UTF_8)
+                )
+                throw SodiumException(
+                    "Could not convert public key: " + base64Encoder.encode(
+                        publicEDKey.asBytes
+                    )
+                )
             }
         }
 
@@ -113,10 +139,26 @@ class SSBDoubleRatchet : DoubleRatchet {
          * public key (each after being transformed to Curve25519).
          * @throws SodiumException If the key could not be converted.
          */
-        fun calculateSharedSecret(ownSSBid: SSBid, otherPublicEDKey: Key): Key {
+        @RequiresApi(Build.VERSION_CODES.O)
+        fun calculateSharedSecretEd(ownSSBid: SSBid, otherPublicEDKey: Key): Key {
             val ownCurveKeyPair = ssbIDToCurve(ownSSBid)
             val otherCurvePublicKey = publicEDKeyToCurve(otherPublicEDKey)
             return diffieHellman(ownCurveKeyPair, otherCurvePublicKey)
+        }
+
+        /**
+         * Takes an [SSBid] containing two Ed25519 keys and the public Curve25519 key of someone
+         * else and calculates a shared secret.
+         * @param ownSSBid Your own [SSBid].
+         * @param otherPublicCurveKey The key of your correspondent, in Curve25519.
+         * @return Shared secret, a scalar multiplication of your private key (after being
+         * transformed to Curve25519) and someone else's public key in Curve25519.
+         * @throws SodiumException If the key could not be converted.
+         */
+        @RequiresApi(Build.VERSION_CODES.O)
+        fun calculateSharedSecretCurve(ownSSBid: SSBid, otherPublicCurveKey: Key): Key {
+            val ownCurveKeyPair = ssbIDToCurve(ownSSBid)
+            return diffieHellman(ownCurveKeyPair, otherPublicCurveKey)
         }
     }
 }
