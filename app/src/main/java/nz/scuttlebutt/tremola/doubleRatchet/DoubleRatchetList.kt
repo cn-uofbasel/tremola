@@ -5,6 +5,9 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.FileNotFoundException
+import java.io.InputStreamReader
 
 /**
  * This class contains the list of all SSBDoubleRatchets. Each SSBDoubleRatchet object corresponds
@@ -13,6 +16,7 @@ import org.json.JSONObject
  * @property list The actual list is a HashMap of chat names and the SSBDoubleRatchet objects.
  * Typically, the chat names are derived using [deriveChatName].
  * TODO Handle case where both participants send the first message.
+ * FIXME DoubleRatchetList does not persist dhPublic or n (at least) in between restarts.
  */
 @RequiresApi(Build.VERSION_CODES.O)
 class DoubleRatchetList(private val context: Context) {
@@ -33,7 +37,7 @@ class DoubleRatchetList(private val context: Context) {
      * @param key The string symbolizing the chat. Typically derived using [deriveChatName].
      * @return The SSBDoubleRatchet if found in the list, null otherwise.
      */
-    fun get(key: String): SSBDoubleRatchet? {
+    operator fun get(key: String): SSBDoubleRatchet? {
         return list[key]
     }
 
@@ -42,7 +46,7 @@ class DoubleRatchetList(private val context: Context) {
      * @param key The string symbolizing the chat. Typically derived using [deriveChatName].
      * @param doubleRatchet The SSBDoubleRatchet that should be put in the list.
      */
-    fun set(key: String, doubleRatchet: SSBDoubleRatchet) {
+    operator fun set(key: String, doubleRatchet: SSBDoubleRatchet) {
         list[key] = doubleRatchet
         this.persist()
     }
@@ -90,20 +94,25 @@ class DoubleRatchetList(private val context: Context) {
      * @return A HashMap which is filled with all the entries that could be found. Might be empty.
      */
     private fun deserializeList(): HashMap<String, SSBDoubleRatchet> {
-        val inputStream = context.openFileInput(FILENAME)
-        // TODO Using a buffer like this might not be enough to read the file in rare cases, where
-        //  the available() call returns a small number. Fix this.
-        val buffer = ByteArray(inputStream.available())
-        inputStream.read(buffer)
-        inputStream.close()
-        val listJSONObject = JSONObject(buffer.decodeToString())
-        val listHashMap = HashMap<String, SSBDoubleRatchet>()
-        for (key in listJSONObject.keys()) {
-            val serializedSSBDoubleRatchet = listJSONObject.getString(key)
-            // Use the deserialization constructor to create a new SSBDoubleRatchet
-            listHashMap[key] = SSBDoubleRatchet(serializedSSBDoubleRatchet)
+        try {
+            val fileInput = context.openFileInput(FILENAME)
+            val inputStreamReader = InputStreamReader(fileInput)
+            val bufferedReader = BufferedReader(inputStreamReader)
+            val readText = bufferedReader.readText()
+            bufferedReader.close()
+            inputStreamReader.close()
+            fileInput.close()
+            val listJSONObject = JSONObject(readText)
+            val listHashMap = HashMap<String, SSBDoubleRatchet>()
+            for (key in listJSONObject.keys()) {
+                val serializedSSBDoubleRatchet = listJSONObject.getString(key)
+                // Use the deserialization constructor to create a new SSBDoubleRatchet
+                listHashMap[key] = SSBDoubleRatchet(serializedSSBDoubleRatchet)
+            }
+            return listHashMap
+        } catch (e: FileNotFoundException) {
+            return HashMap()
         }
-        return listHashMap
     }
 
     companion object {
