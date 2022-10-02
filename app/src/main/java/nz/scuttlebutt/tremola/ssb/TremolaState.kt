@@ -1,8 +1,11 @@
 package nz.scuttlebutt.tremola.ssb
 
 import android.content.Context
+import android.os.Build
+import androidx.annotation.RequiresApi
 import nz.scuttlebutt.tremola.MainActivity
 import nz.scuttlebutt.tremola.WebAppInterface
+import nz.scuttlebutt.tremola.doubleRatchet.DoubleRatchetList
 import nz.scuttlebutt.tremola.ssb.core.IdStore
 import nz.scuttlebutt.tremola.ssb.db.TremolaDatabase
 import nz.scuttlebutt.tremola.ssb.db.daos.ContactDAO
@@ -30,6 +33,8 @@ import java.util.concurrent.TimeUnit
  * @property pubDAO The data access object for the pubs.
  * @property contactDAO The data access object for the contacts.
  * @property idStore Contains the the cryptographic keys of the identity.
+ * @property doubleRatchetList Contains the list of DoubleRatchets that are used to encrypt and
+ * decrypt chat messages.
  * @property peers The peers that are currently active or known.
  * @property wai The WebAppInterface that the frontend uses to interact with the backend.
  * @property msgTypes The SSBmsgTypes object.
@@ -49,6 +54,10 @@ class TremolaState(val context: Context) {
 
     // The identity, i.e. the crypto keys are stored in this field.
     val idStore = IdStore(context)
+
+    // Contains the list of DoubleRatchets used for each chat.
+    @RequiresApi(Build.VERSION_CODES.O)
+    val doubleRatchetList = DoubleRatchetList(context)
 
     // The other known and/or active peers.
     val peers: PeeringPool = PeeringPool(this)
