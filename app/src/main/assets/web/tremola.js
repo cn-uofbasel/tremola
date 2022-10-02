@@ -891,7 +891,7 @@ function b2f_new_contact_lookup(target_short_name, new_contact_id) {
 }
 
 /**
- * Called when an SSB log even is incoming, we receive an object with three fields: header, confid, public.
+ * Called when an SSB log event is incoming, we receive an object with three fields: header, confid, public.
  * Typically called from backend. This object is added to the respective chat.
  * @param e Event object. Looks like this, example is mocking what the frontend expects:
  * 'header': {'tst': Date.now(), 'ref': Math.floor(1000000 * Math.random()), 'fid': myId}, 'confid': {'type': 'post',
