@@ -3,17 +3,24 @@ package nz.scuttlebutt.tremola
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.os.Build
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import com.google.zxing.integration.android.IntentIntegrator
+import com.goterl.lazysodium.exceptions.SodiumException
+import com.goterl.lazysodium.utils.Key
+import nz.scuttlebutt.tremola.doubleRatchet.DoubleRatchet
+import nz.scuttlebutt.tremola.doubleRatchet.SSBDoubleRatchet
 import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
 import nz.scuttlebutt.tremola.ssb.db.entities.Pub
 import nz.scuttlebutt.tremola.ssb.peering.RpcInitiator
 import nz.scuttlebutt.tremola.ssb.peering.RpcServices
+import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.deRef
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.id2
 import nz.scuttlebutt.tremola.utils.getBroadcastAddress
 import org.json.JSONObject
@@ -53,6 +60,7 @@ class WebAppInterface(
      * While AndroidStudio might not recognize it, this function is indeed used, so do not delete.
      * @param s The command string it received from the frontend.
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     @JavascriptInterface
     fun onFrontendRequest(s: String) {
         // Handle the data captured from webView.
@@ -79,7 +87,7 @@ class WebAppInterface(
                 eval("b2f_initialize(\"${tremolaState.idStore.identity.toRef()}\")")
             }
 
-            // Resend all the log of private messages.
+            // Resend all the log of private messages to the frontend.
             "restream" -> {
                 for (logEntry in tremolaState.logDAO.getAllAsList())
                     if (logEntry.pri != null) // Only private chat messages.
@@ -172,17 +180,72 @@ class WebAppInterface(
                 return
             }
 
-            // Post a private chat message.
+            // Post a private chat message. Uses DoubleRatchet if the chat is between two people.
+            // FIXME Your own posts are displayed to you encrypted.
+            //  DoubleRatchetList does not persist dhPublic or n (at least) in between restarts.
+            //  Posts cannot yet be decrypted by other people.
             "priv:post" -> {
                 // The arguments are: atob(text) recipient1 recipient2 ...
-                val rawStr = tremolaState.msgTypes.mkPost(
-                    Base64.decode(args[1], Base64.NO_WRAP).decodeToString(),
-                    args.slice(2..args.lastIndex)
-                )
+                // Recipients include yourself and contain the whole ID (@A..A=.ed25519).
+                val users = args.slice(2..args.lastIndex).toTypedArray()
+                val rawStr: String
+                if (users.size == 2) { // Chat between two people: use SSBDoubleRatchet to encrypt!
+                    val messageText = Base64.decode(args[1], Base64.NO_WRAP).decodeToString()
+                    val doubleRatchetList = tremolaState.doubleRatchetList
+                    val chatName = doubleRatchetList.deriveChatName(users)
+                    var doubleRatchet = doubleRatchetList[chatName]
+                    if (doubleRatchet == null) { // Create new ratchet.
+                        var recipient = ""
+                        val mySSBId = tremolaState.idStore.identity
+                        for (user in users) {
+                            if (user != mySSBId.toRef()) { // ID is not my public ID: must be other.
+                                recipient = user
+                            }
+                        }
+                        val otherPublicKeyEd = Key.fromBytes(recipient.deRef())
+                        try {
+                            val otherPublicKeyCurve =
+                                SSBDoubleRatchet.publicEDKeyToCurve(otherPublicKeyEd)
+                            val sharedSecret =
+                                SSBDoubleRatchet.calculateSharedSecretCurve(
+                                    mySSBId,
+                                    otherPublicKeyCurve
+                                )
+                            doubleRatchetList[chatName] =
+                                SSBDoubleRatchet(sharedSecret, otherPublicKeyCurve)
+                            doubleRatchet = doubleRatchetList[chatName]
+                        } catch (e: SodiumException) {
+                            Log.e("WebAppInterface", "Failed to convert other public key.")
+                            Log.e("WebAppInterface", e.stackTraceToString())
+                            if (e.message != null) {
+                                Log.e("WebAppInterface", e.message!!)
+                            }
+                        }
+                    }
+                    if (doubleRatchet == null) {
+                        Log.e(
+                            "WebAppInterface",
+                            "Failed to create DoubleRatchet when sending message."
+                        )
+                        throw Exception(
+                            "WebAppInterface, failed to create DoubleRatchet when sending message."
+                        )
+                    }
+                    val ciphertext = doubleRatchet.encryptString(messageText)
+                    doubleRatchetList.persist()
+                    rawStr = tremolaState.msgTypes.mkPost(ciphertext, args.slice(2..args.lastIndex))
+                } else {
+                    rawStr = tremolaState.msgTypes.mkPost(
+                        Base64.decode(args[1], Base64.NO_WRAP).decodeToString(),
+                        args.slice(2..args.lastIndex)
+                    )
+                }
+
                 val event = tremolaState.msgTypes.jsonToLogEntry(
                     rawStr,
                     rawStr.encodeToByteArray()
                 )
+                Log.d("WebAppInterface", "priv:post: posted event: " + event.toString() )
                 event?.let { rxEvent(it) } // Persist it, propagate horizontally and also up.
                 return
             }
@@ -336,6 +399,7 @@ class WebAppInterface(
      * @param event The LogEntry that was just created and should go to the frontend.
      */
     private fun sendEventToFrontend(event: LogEntry) {
+        // TODO Implement DoubleRatchet functionality here.
         // Log.d("MSG added", event.ref.toString())
         val hdr = JSONObject()
         hdr.put("ref", event.hid)
