@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.net.*
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.text.format.Formatter
@@ -14,6 +15,7 @@ import android.view.Window
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import com.google.zxing.integration.android.IntentIntegrator
 import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.peering.RpcResponder
@@ -28,6 +30,7 @@ import java.net.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 
+@RequiresApi(Build.VERSION_CODES.O)
 class MainActivity : Activity() {
     /** Documents the backend state of the app, mostly information about local peer. */
     private lateinit var tremolaState: TremolaState
@@ -301,12 +304,14 @@ class MainActivity : Activity() {
     }
 
     /**
-     * When the app is fully closed, this is used. Closes the network.
+     * When the app is fully closed, this is used. Closes the network and persists the
+     * DoubleRatchetList.
      * TODO potentially incomplete. Not all sockets are closed, but this is probably handled by the
      *  system anyway.
      */
     override fun onDestroy() {
         Log.d("onDestroy", "")
+        tremolaState.doubleRatchetList.persist()
         try {
             broadcastSocket?.close()
             lookupSocket?.close()
