@@ -76,7 +76,11 @@ class DoubleRatchetList(private val context: Context) {
     private fun serialize(): String {
         val listJSONObject = JSONObject()
         for (key in list.keys) {
-            listJSONObject.put(key, list[key])
+            if (list[key] != null) {
+                listJSONObject.put(key, list[key]!!.serialize())
+            } else {
+                Log.e("DoubleRatchetList", "Empty value in list.")
+            }
         }
         return listJSONObject.toString()
     }
