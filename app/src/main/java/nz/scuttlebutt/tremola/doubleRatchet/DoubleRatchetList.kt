@@ -44,6 +44,7 @@ class DoubleRatchetList(private val context: Context) {
      */
     fun set(key: String, doubleRatchet: SSBDoubleRatchet) {
         list[key] = doubleRatchet
+        this.persist()
     }
 
     /**
