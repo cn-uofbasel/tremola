@@ -26,6 +26,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.Executors
+import javax.crypto.AEADBadTagException
 
 
 // pt 3 in
@@ -196,7 +197,7 @@ class WebAppInterface(
                     rawStr,
                     rawStr.encodeToByteArray()
                 )
-                Log.d("WebAppInterface", "priv:post: posted event: " + event.toString())
+                Log.d(TAG, "priv:post: posted event: " + event.toString())
                 event?.let { rxEvent(it) } // Persist it, propagate horizontally and also up.
                 return
             }
@@ -404,16 +405,16 @@ class WebAppInterface(
                         SSBDoubleRatchet(sharedSecret, otherPublicKeyCurve)
                     doubleRatchet = doubleRatchetList[chatName]
                 } catch (e: SodiumException) {
-                    Log.e("WebAppInterface", "Failed to convert other public key.")
-                    Log.e("WebAppInterface", e.stackTraceToString())
+                    Log.e(TAG, "Failed to convert other public key.")
+                    Log.e(TAG, e.stackTraceToString())
                     if (e.message != null) {
-                        Log.e("WebAppInterface", e.message!!)
+                        Log.e(TAG, e.message!!)
                     }
                 }
             }
             if (doubleRatchet == null) {
                 Log.e(
-                    "WebAppInterface",
+                    TAG,
                     "Failed to create DoubleRatchet when sending message."
                 )
                 throw Exception(
@@ -437,10 +438,10 @@ class WebAppInterface(
      */
     private fun decryptWithDoubleRatchet(event: LogEntry): String {
         val eventPriJSONObject = if (event.pri == null) {
-            Log.d("WebAppInterface", "sendEventToFrontend: event.pri is null.")
+            Log.d(TAG, "sendEventToFrontend: event.pri is null.")
             JSONObject("")
         } else {
-            Log.d("WebAppInterface", "sendEventToFrontend: Contents of pri: ${event.pri}.")
+            Log.d(TAG, "sendEventToFrontend: Contents of pri: ${event.pri}.")
             JSONObject(event.pri!!)
         }
         val confidJSONObject = JSONObject()
@@ -449,7 +450,7 @@ class WebAppInterface(
             confidJSONObject.put(TYPE, eventPriJSONObject.getString(TYPE))
             val messageCiphertext = eventPriJSONObject.getString(TEXT)
             val recipientsJSONArray = eventPriJSONObject.getJSONArray(RECPS)
-            val messagePlaintext: String
+            var messagePlaintext = ""
             if (recipientsJSONArray.length() == 2) { // Chat between two people, use DoubleRatchet.
                 val doubleRatchetList = tremolaState.doubleRatchetList
                 val recipientsStringArray =
@@ -477,23 +478,27 @@ class WebAppInterface(
                             SSBDoubleRatchet(sharedSecret, ownSSBKeyPairCurve)
                         doubleRatchet = doubleRatchetList[chatName]
                     } catch (e: SodiumException) {
-                        Log.e("WebAppInterface", "Failed to convert other public key.")
-                        Log.e("WebAppInterface", e.stackTraceToString())
+                        Log.e(TAG, "Failed to convert other public key.")
+                        Log.e(TAG, e.stackTraceToString())
                         if (e.message != null) {
-                            Log.e("WebAppInterface", e.message!!)
+                            Log.e(TAG, e.message!!)
                         }
                     }
                 }
                 if (doubleRatchet == null) {
                     Log.e(
-                        "WebAppInterface",
+                        TAG,
                         "Failed to create DoubleRatchet when receiving message."
                     )
                     throw Exception(
                         "WebAppInterface, failed to create DoubleRatchet when sending message."
                     )
                 }
-                messagePlaintext = doubleRatchet.decryptString(messageCiphertext)
+                try {
+                    messagePlaintext = doubleRatchet.decryptString(messageCiphertext)
+                } catch (e: AEADBadTagException) {
+                    Log.w(TAG, e.stackTraceToString())
+                } // TODO If empty text arrives at frontend, ignore it.
                 doubleRatchetList.persist()
             } else {
                 messagePlaintext = messageCiphertext
@@ -503,7 +508,7 @@ class WebAppInterface(
             confidString = confidJSONObject.toString()
         } catch (e: JSONException) {
             Log.d(
-                "WebAppInterface", "sendEventToFrontend: JSONException when " +
+                TAG, "sendEventToFrontend: JSONException when " +
                         "trying to read JSONObject of event.pri"
             )
             if (event.pri != null) {
@@ -511,11 +516,11 @@ class WebAppInterface(
             }
         } catch (e: SodiumException) {
             Log.d(
-                "WebAppInterface", "sendEventToFrontend: SodiumException when trying to" +
+                TAG, "sendEventToFrontend: SodiumException when trying to" +
                         "decrypt a message."
             )
-            e.message?.let { Log.d("WebAppInterface", it) }
-            Log.d("WebAppInterface", e.stackTraceToString())
+            e.message?.let { Log.d(TAG, it) }
+            Log.d(TAG, e.stackTraceToString())
         }
         return confidString
     }
@@ -529,6 +534,9 @@ class WebAppInterface(
 
         /** Used as identifier for rootKey in JSONObjects. */
         private const val RECPS = "recps"
+
+        /** Used as the tag in logging statements. */
+        private const val TAG = "WebAppInterface"
 
     }
 }
