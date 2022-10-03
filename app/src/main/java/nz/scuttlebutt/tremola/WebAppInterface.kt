@@ -188,59 +188,10 @@ class WebAppInterface(
                 // The arguments are: atob(text) recipient1 recipient2 ...
                 // Recipients include yourself and contain the whole ID (@A..A=.ed25519).
                 val users = args.slice(2..args.lastIndex).toTypedArray()
-                val rawStr: String
-                if (users.size == 2) { // Chat between two people: use SSBDoubleRatchet to encrypt!
-                    val messageText = Base64.decode(args[1], Base64.NO_WRAP).decodeToString()
-                    val doubleRatchetList = tremolaState.doubleRatchetList
-                    val chatName = doubleRatchetList.deriveChatName(users)
-                    var doubleRatchet = doubleRatchetList[chatName]
-                    if (doubleRatchet == null) { // Create new ratchet.
-                        var recipient = ""
-                        val mySSBId = tremolaState.idStore.identity
-                        for (user in users) {
-                            if (user != mySSBId.toRef()) { // ID is not my public ID: must be other.
-                                recipient = user
-                            }
-                        }
-                        val otherPublicKeyEd = Key.fromBytes(recipient.deRef())
-                        try {
-                            val otherPublicKeyCurve =
-                                SSBDoubleRatchet.publicEDKeyToCurve(otherPublicKeyEd)
-                            val sharedSecret =
-                                SSBDoubleRatchet.calculateSharedSecretCurve(
-                                    mySSBId,
-                                    otherPublicKeyCurve
-                                )
-                            doubleRatchetList[chatName] =
-                                SSBDoubleRatchet(sharedSecret, otherPublicKeyCurve)
-                            doubleRatchet = doubleRatchetList[chatName]
-                        } catch (e: SodiumException) {
-                            Log.e("WebAppInterface", "Failed to convert other public key.")
-                            Log.e("WebAppInterface", e.stackTraceToString())
-                            if (e.message != null) {
-                                Log.e("WebAppInterface", e.message!!)
-                            }
-                        }
-                    }
-                    if (doubleRatchet == null) {
-                        Log.e(
-                            "WebAppInterface",
-                            "Failed to create DoubleRatchet when sending message."
-                        )
-                        throw Exception(
-                            "WebAppInterface, failed to create DoubleRatchet when sending message."
-                        )
-                    }
-                    val ciphertext = doubleRatchet.encryptString(messageText)
-                    doubleRatchetList.persist()
-                    rawStr = tremolaState.msgTypes.mkPost(ciphertext, args.slice(2..args.lastIndex))
-                } else {
-                    rawStr = tremolaState.msgTypes.mkPost(
-                        Base64.decode(args[1], Base64.NO_WRAP).decodeToString(),
-                        args.slice(2..args.lastIndex)
-                    )
-                }
-
+                val messageText = Base64.decode(args[1], Base64.NO_WRAP).decodeToString()
+                // This only encrypts if it is a chat between two people, otherwise text is same
+                val ciphertext = encryptWithDoubleRatchet(messageText, users)
+                val rawStr = tremolaState.msgTypes.mkPost(ciphertext, args.slice(2..args.lastIndex))
                 val event = tremolaState.msgTypes.jsonToLogEntry(
                     rawStr,
                     rawStr.encodeToByteArray()
@@ -400,14 +351,91 @@ class WebAppInterface(
      * @param event The LogEntry that was just created and should go to the frontend.
      */
     private fun sendEventToFrontend(event: LogEntry) {
-        // TODO Implement DoubleRatchet functionality here.
         // Log.d("MSG added", event.ref.toString())
+        // FIXME The app cannot yet display the messages you sent yourself.
+        //  Currently, they cannot be decrypted since we do not keep the keys of sent messages.
         val hdr = JSONObject()
         hdr.put("ref", event.hid)
         hdr.put("fid", event.lid)
         hdr.put("seq", event.lsq)
         hdr.put("pre", event.pre)
         hdr.put("tst", event.tst)
+        // Only decrypts if it is a two person chat. Always creates the expected confid string.
+        val confidString = decryptWithDoubleRatchet(event)
+        var cmd = "b2f_new_event({header:$hdr,"
+        cmd += "public:" + (if (event.pub == null) "null" else event.pub) + ","
+        cmd += "confid:$confidString"
+        cmd += "});"
+        Log.d("CMD", cmd)
+        eval(cmd)
+    }
+
+    /**
+     * Takes a plaintext of a message and the people involved in the conversation and returns a
+     * ciphertext encrypted with SSBDoubleRatchet if it is a private chat between two people.
+     * @param plaintext The message that the user entered in the text field, not encoded.
+     * @param recipients The public SSB IDs of the people in the chat.
+     * @return The ciphertext that should be in the final message. If it is the group chat, it is
+     * the same as plaintext.
+     */
+    private fun encryptWithDoubleRatchet(plaintext: String, recipients: Array<String>): String {
+        if (recipients.size == 2) { // Chat between two people: use SSBDoubleRatchet to encrypt!
+            val doubleRatchetList = tremolaState.doubleRatchetList
+            val chatName = doubleRatchetList.deriveChatName(recipients)
+            var doubleRatchet = doubleRatchetList[chatName]
+            if (doubleRatchet == null) { // Create new ratchet.
+                var recipient = ""
+                val mySSBId = tremolaState.idStore.identity
+                for (user in recipients) {
+                    if (user != mySSBId.toRef()) { // ID is not my public ID: must be other.
+                        recipient = user
+                    }
+                }
+                val otherPublicKeyEd = Key.fromBytes(recipient.deRef())
+                try {
+                    val otherPublicKeyCurve =
+                        SSBDoubleRatchet.publicEDKeyToCurve(otherPublicKeyEd)
+                    val sharedSecret =
+                        SSBDoubleRatchet.calculateSharedSecretCurve(
+                            mySSBId,
+                            otherPublicKeyCurve
+                        )
+                    doubleRatchetList[chatName] =
+                        SSBDoubleRatchet(sharedSecret, otherPublicKeyCurve)
+                    doubleRatchet = doubleRatchetList[chatName]
+                } catch (e: SodiumException) {
+                    Log.e("WebAppInterface", "Failed to convert other public key.")
+                    Log.e("WebAppInterface", e.stackTraceToString())
+                    if (e.message != null) {
+                        Log.e("WebAppInterface", e.message!!)
+                    }
+                }
+            }
+            if (doubleRatchet == null) {
+                Log.e(
+                    "WebAppInterface",
+                    "Failed to create DoubleRatchet when sending message."
+                )
+                throw Exception(
+                    "WebAppInterface, failed to create DoubleRatchet when sending message."
+                )
+            }
+            val ciphertext = doubleRatchet.encryptString(plaintext)
+            doubleRatchetList.persist()
+            return ciphertext
+        } else { // Group chat: do not encrypt beyond normal.
+            return plaintext
+        }
+    }
+
+    /**
+     * Takes an incoming event and decrypts it if it is a message in a two person chat. Even if it
+     * is not, creates the appropriate String to send to the frontend.
+     * @param event The LogEntry that represents the new log message.
+     * @return The confidString, a stringified JSON object that contains the fields: type, text,
+     * recps and mentions.
+     */
+    private fun decryptWithDoubleRatchet(event: LogEntry): String {
         val eventPriJSONObject = if (event.pri == null) {
             Log.d("WebAppInterface", "sendEventToFrontend: event.pri is null.")
             JSONObject("")
@@ -481,14 +509,15 @@ class WebAppInterface(
             if (event.pri != null) {
                 confidString = event.pri!!
             }
+        } catch (e: SodiumException) {
+            Log.d(
+                "WebAppInterface", "sendEventToFrontend: SodiumException when trying to" +
+                        "decrypt a message."
+            )
+            e.message?.let { Log.d("WebAppInterface", it) }
+            Log.d("WebAppInterface", e.stackTraceToString())
         }
-
-        var cmd = "b2f_new_event({header:$hdr,"
-        cmd += "public:" + (if (event.pub == null) "null" else event.pub) + ","
-        cmd += "confid:$confidString"
-        cmd += "});"
-        Log.d("CMD", cmd)
-        eval(cmd)
+        return confidString
     }
 
     companion object {
