@@ -34,9 +34,9 @@ class SSBDoubleRatchetLocalTest {
         val aliceSSBid = SSBid()
         val bobSSBid = SSBid()
         val aliceProduct =
-            SSBDoubleRatchet.calculateSharedSecret(aliceSSBid, Key.fromBytes(bobSSBid.verifyKey))
+            SSBDoubleRatchet.calculateSharedSecretEd(aliceSSBid, Key.fromBytes(bobSSBid.verifyKey))
         val bobProduct =
-            SSBDoubleRatchet.calculateSharedSecret(bobSSBid, Key.fromBytes(aliceSSBid.verifyKey))
+            SSBDoubleRatchet.calculateSharedSecretEd(bobSSBid, Key.fromBytes(aliceSSBid.verifyKey))
         assert(aliceProduct == bobProduct)
     }
 
@@ -79,9 +79,9 @@ class SSBDoubleRatchetLocalTest {
         val alicePublicEDKey = Key.fromBytes(aliceSSBid.verifyKey)
         val bobPublicEDKey = Key.fromBytes(bobSSBid.verifyKey)
         val aliceSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(aliceSSBid, bobPublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(aliceSSBid, bobPublicEDKey)
         val bobSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(bobSSBid, alicePublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(bobSSBid, alicePublicEDKey)
         assert(aliceSharedSecret == bobSharedSecret)
 
         // Alice sent the first message, create ratchets accordingly.
@@ -122,9 +122,9 @@ class SSBDoubleRatchetLocalTest {
         val alicePublicEDKey = Key.fromBytes(aliceSSBid.verifyKey)
         val bobPublicEDKey = Key.fromBytes(bobSSBid.verifyKey)
         val aliceSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(aliceSSBid, bobPublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(aliceSSBid, bobPublicEDKey)
         val bobSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(bobSSBid, alicePublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(bobSSBid, alicePublicEDKey)
         assert(aliceSharedSecret == bobSharedSecret)
 
         // Alice sent the first message, create ratchets accordingly.
@@ -156,9 +156,9 @@ class SSBDoubleRatchetLocalTest {
         val alicePublicEDKey = Key.fromBytes(aliceSSBid.verifyKey)
         val bobPublicEDKey = Key.fromBytes(bobSSBid.verifyKey)
         val aliceSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(aliceSSBid, bobPublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(aliceSSBid, bobPublicEDKey)
         val bobSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(bobSSBid, alicePublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(bobSSBid, alicePublicEDKey)
         assert(aliceSharedSecret == bobSharedSecret)
 
         // Alice sent the first message, create ratchets accordingly.
@@ -201,9 +201,9 @@ class SSBDoubleRatchetLocalTest {
         val alicePublicEDKey = Key.fromBytes(aliceSSBid.verifyKey)
         val bobPublicEDKey = Key.fromBytes(bobSSBid.verifyKey)
         val aliceSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(aliceSSBid, bobPublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(aliceSSBid, bobPublicEDKey)
         val bobSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(bobSSBid, alicePublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(bobSSBid, alicePublicEDKey)
         assert(aliceSharedSecret == bobSharedSecret)
 
         // Alice sent the first message, create ratchets accordingly.
@@ -241,9 +241,9 @@ class SSBDoubleRatchetLocalTest {
         val alicePublicEDKey = Key.fromBytes(aliceSSBid.verifyKey)
         val bobPublicEDKey = Key.fromBytes(bobSSBid.verifyKey)
         val aliceSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(aliceSSBid, bobPublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(aliceSSBid, bobPublicEDKey)
         val bobSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(bobSSBid, alicePublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(bobSSBid, alicePublicEDKey)
         assert(aliceSharedSecret == bobSharedSecret)
 
         // Alice sent the first message, create ratchets accordingly.
@@ -282,9 +282,9 @@ class SSBDoubleRatchetLocalTest {
         val alicePublicEDKey = Key.fromBytes(aliceSSBid.verifyKey)
         val bobPublicEDKey = Key.fromBytes(bobSSBid.verifyKey)
         val aliceSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(aliceSSBid, bobPublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(aliceSSBid, bobPublicEDKey)
         val bobSharedSecret =
-            SSBDoubleRatchet.calculateSharedSecret(bobSSBid, alicePublicEDKey)
+            SSBDoubleRatchet.calculateSharedSecretEd(bobSSBid, alicePublicEDKey)
         assert(aliceSharedSecret == bobSharedSecret)
 
         // Alice sent the first message, create ratchets accordingly.
