@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit
  * @property wai The WebAppInterface that the frontend uses to interact with the backend.
  * @property msgTypes The SSBmsgTypes object.
  */
+@RequiresApi(Build.VERSION_CODES.O)
 class TremolaState(val context: Context) {
     private val numberOfCores = Runtime.getRuntime().availableProcessors()
     private val executorPool: ScheduledExecutorService = Executors.newScheduledThreadPool(
@@ -56,7 +57,6 @@ class TremolaState(val context: Context) {
     val idStore = IdStore(context)
 
     // Contains the list of DoubleRatchets used for each chat.
-    @RequiresApi(Build.VERSION_CODES.O)
     val doubleRatchetList = DoubleRatchetList(context)
 
     // The other known and/or active peers.
