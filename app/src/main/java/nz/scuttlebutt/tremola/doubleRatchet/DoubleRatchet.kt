@@ -11,6 +11,7 @@ import com.goterl.lazysodium.utils.KeyPair
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.util.*
+import javax.crypto.AEADBadTagException
 import kotlin.math.ceil
 
 /**
@@ -60,7 +61,7 @@ open class DoubleRatchet {
     private var messageNumberSending: Int
     private var messageNumberReceiving: Int
     private var previousChainLength: Int
-    private val messageKeysSkipped: Hashtable<String, Key>
+    private var messageKeysSkipped: Hashtable<String, Key>
 
     /**
      * This constructor is used when you are the person sending the first message.
@@ -196,6 +197,27 @@ open class DoubleRatchet {
     }
 
     /**
+     * In case decryption should fail (due to trying to decrypt one's one message for example), this
+     * can be called with a serialized version of the initial state before decrypting to reset this
+     * object to it.
+     * @param oldStateSerialized The string that was received after calling the serialize method
+     * before starting the decryption.
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun resetToOldValues(oldStateSerialized: String) {
+        val oldRatchet = DoubleRatchet(oldStateSerialized)
+        dhSent = oldRatchet.dhSent
+        dhReceived = oldRatchet.dhReceived
+        rootKey = oldRatchet.rootKey
+        chainKeySending = oldRatchet.chainKeySending
+        chainKeyReceiving = oldRatchet.chainKeyReceiving
+        messageNumberSending = oldRatchet.messageNumberSending
+        messageNumberReceiving = oldRatchet.messageNumberReceiving
+        previousChainLength = oldRatchet.previousChainLength
+        messageKeysSkipped = oldRatchet.messageKeysSkipped
+    }
+
+    /**
      * Interface to encryptMessage. Takes a string [plaintext] and uses it plus a static string for
      * encryption.
      * @param plaintext The string to encrypt.
@@ -251,6 +273,10 @@ open class DoubleRatchet {
         // Make a JSON object with the resulting values and stringify it.
         val jsonObject = JSONObject()
         jsonObject.put(HEADER, header)
+        Log.d(TAG, "Encrypting:")
+        Log.d(TAG, "plaintext: $plaintext")
+        Log.d(TAG, "header: $header")
+        Log.d(TAG, "associatedData: $associatedData")
         val encodedEncryptedMessage =
             encrypt(messageKey, plaintext, concatenate(associatedData, header))
         jsonObject.put(ENCODED_ENCRYPTED_MESSAGE, encodedEncryptedMessage)
@@ -277,6 +303,9 @@ open class DoubleRatchet {
         encodedEncryptedMessage: String,
         associatedData: String
     ): String {
+        // Copy the old state to reset to, in case of failure.
+        val oldStateSerialized = this.serialize()
+
         // Try decoding with a key we skipped.
         val plaintext = trySkippedMessageKeys(header, encodedEncryptedMessage, associatedData)
         if (plaintext != null) {
@@ -302,7 +331,17 @@ open class DoubleRatchet {
         chainKeyReceiving = chainRatchetResult.secretKey
         val messageKey = chainRatchetResult.publicKey
         messageNumberReceiving += 1
-        return decrypt(messageKey, encodedEncryptedMessage, concatenate(associatedData, header))
+        Log.d(TAG, "Decrypting:")
+        Log.d(TAG, "encodedEncryptedMessage: $encodedEncryptedMessage")
+        Log.d(TAG, "header: $header")
+        Log.d(TAG, "associatedData: $associatedData")
+        try {
+            return decrypt(messageKey, encodedEncryptedMessage, concatenate(associatedData, header))
+        } catch (e: AEADBadTagException) {
+            Log.d(TAG, "Decryption failed. Will reset to old values.")
+            resetToOldValues(oldStateSerialized)
+            throw e
+        }
     }
 
     /**
@@ -714,5 +753,8 @@ open class DoubleRatchet {
 
         /** Used as identifier for messageKeysSkipped in JSONObjects. */
         private const val MESSAGE_KEYS_SKIPPED = "messageKeysSkipped"
+
+        /** Used as tag in logging statements. */
+        private const val TAG = "DoubleRatchet"
     }
 }
