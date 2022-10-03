@@ -13,7 +13,6 @@ import androidx.annotation.RequiresApi
 import com.google.zxing.integration.android.IntentIntegrator
 import com.goterl.lazysodium.exceptions.SodiumException
 import com.goterl.lazysodium.utils.Key
-import nz.scuttlebutt.tremola.doubleRatchet.DoubleRatchet
 import nz.scuttlebutt.tremola.doubleRatchet.SSBDoubleRatchet
 import nz.scuttlebutt.tremola.ssb.TremolaState
 import nz.scuttlebutt.tremola.ssb.db.entities.LogEntry
@@ -23,6 +22,7 @@ import nz.scuttlebutt.tremola.ssb.peering.RpcServices
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.deRef
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.id2
 import nz.scuttlebutt.tremola.utils.getBroadcastAddress
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.Executors
@@ -43,6 +43,7 @@ import java.util.concurrent.Executors
  * and the [webView], which is the app's element displaying the frontend, which calls these
  * functions.
  */
+@RequiresApi(Build.VERSION_CODES.O)
 class WebAppInterface(
     private val act: Activity,
     val tremolaState: TremolaState,
@@ -60,7 +61,6 @@ class WebAppInterface(
      * While AndroidStudio might not recognize it, this function is indeed used, so do not delete.
      * @param s The command string it received from the frontend.
      */
-    @RequiresApi(Build.VERSION_CODES.O)
     @JavascriptInterface
     fun onFrontendRequest(s: String) {
         // Handle the data captured from webView.
@@ -245,7 +245,7 @@ class WebAppInterface(
                     rawStr,
                     rawStr.encodeToByteArray()
                 )
-                Log.d("WebAppInterface", "priv:post: posted event: " + event.toString() )
+                Log.d("WebAppInterface", "priv:post: posted event: " + event.toString())
                 event?.let { rxEvent(it) } // Persist it, propagate horizontally and also up.
                 return
             }
@@ -395,7 +395,8 @@ class WebAppInterface(
 
     /**
      * This takes a LogEntry [event] and passes it to the frontend via an eval statement with the
-     * appropriately formatted JSON string.
+     * appropriately formatted JSON string. If the message is encrypted using DoubleRatchet,
+     * decrypts it.
      * @param event The LogEntry that was just created and should go to the frontend.
      */
     private fun sendEventToFrontend(event: LogEntry) {
@@ -407,11 +408,98 @@ class WebAppInterface(
         hdr.put("seq", event.lsq)
         hdr.put("pre", event.pre)
         hdr.put("tst", event.tst)
+        val eventPriJSONObject = if (event.pri == null) {
+            Log.d("WebAppInterface", "sendEventToFrontend: event.pri is null.")
+            JSONObject("")
+        } else {
+            Log.d("WebAppInterface", "sendEventToFrontend: Contents of pri: ${event.pri}.")
+            JSONObject(event.pri!!)
+        }
+        val confidJSONObject = JSONObject()
+        var confidString = ""
+        try {
+            confidJSONObject.put(TYPE, eventPriJSONObject.getString(TYPE))
+            val messageCiphertext = eventPriJSONObject.getString(TEXT)
+            val recipientsJSONArray = eventPriJSONObject.getJSONArray(RECPS)
+            val messagePlaintext: String
+            if (recipientsJSONArray.length() == 2) { // Chat between two people, use DoubleRatchet.
+                val doubleRatchetList = tremolaState.doubleRatchetList
+                val recipientsStringArray =
+                    arrayOf(recipientsJSONArray.getString(0), recipientsJSONArray.getString(1))
+                val chatName = doubleRatchetList.deriveChatName(recipientsStringArray)
+                var doubleRatchet = doubleRatchetList[chatName]
+                if (doubleRatchet == null) { // No ratchet exists for this chat, create new ratchet.
+                    var recipient = ""
+                    val mySSBId = tremolaState.idStore.identity
+                    for (user in recipientsStringArray) {
+                        if (user != mySSBId.toRef()) { // ID is not my public ID: must be other.
+                            recipient = user
+                        }
+                    }
+                    val otherPublicKeyEd = Key.fromBytes(recipient.deRef())
+                    try {
+                        val ownSSBKeyPairCurve =
+                            SSBDoubleRatchet.ssbIDToCurve(mySSBId)
+                        val sharedSecret =
+                            SSBDoubleRatchet.calculateSharedSecretCurve(
+                                mySSBId,
+                                otherPublicKeyEd
+                            )
+                        doubleRatchetList[chatName] =
+                            SSBDoubleRatchet(sharedSecret, ownSSBKeyPairCurve)
+                        doubleRatchet = doubleRatchetList[chatName]
+                    } catch (e: SodiumException) {
+                        Log.e("WebAppInterface", "Failed to convert other public key.")
+                        Log.e("WebAppInterface", e.stackTraceToString())
+                        if (e.message != null) {
+                            Log.e("WebAppInterface", e.message!!)
+                        }
+                    }
+                }
+                if (doubleRatchet == null) {
+                    Log.e(
+                        "WebAppInterface",
+                        "Failed to create DoubleRatchet when receiving message."
+                    )
+                    throw Exception(
+                        "WebAppInterface, failed to create DoubleRatchet when sending message."
+                    )
+                }
+                messagePlaintext = doubleRatchet.decryptString(messageCiphertext)
+                doubleRatchetList.persist()
+            } else {
+                messagePlaintext = messageCiphertext
+            }
+            confidJSONObject.put(TEXT, messagePlaintext)
+            confidJSONObject.put(RECPS, recipientsJSONArray)
+            confidString = confidJSONObject.toString()
+        } catch (e: JSONException) {
+            Log.d(
+                "WebAppInterface", "sendEventToFrontend: JSONException when " +
+                        "trying to read JSONObject of event.pri"
+            )
+            if (event.pri != null) {
+                confidString = event.pri!!
+            }
+        }
+
         var cmd = "b2f_new_event({header:$hdr,"
         cmd += "public:" + (if (event.pub == null) "null" else event.pub) + ","
-        cmd += "confid:" + (if (event.pri == null) "null" else event.pri)
+        cmd += "confid:$confidString"
         cmd += "});"
         Log.d("CMD", cmd)
         eval(cmd)
+    }
+
+    companion object {
+        /** Used as identifier for the type of event in JSONObjects. */
+        private const val TYPE = "type"
+
+        /** Used as identifier for the message content in JSONObjects. */
+        private const val TEXT = "text"
+
+        /** Used as identifier for rootKey in JSONObjects. */
+        private const val RECPS = "recps"
+
     }
 }
