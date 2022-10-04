@@ -1,60 +1,49 @@
 package nz.scuttlebutt.tremola.doubleRatchet
 
 import android.content.Context
-import android.content.ContextKotlin
 import com.goterl.lazysodium.utils.Key
 import nz.scuttlebutt.tremola.ssb.core.SSBid
 import org.junit.*
 import org.junit.runner.RunWith
-import org.mockito.AdditionalAnswers.answer
 import org.mockito.Mock
-import org.mockito.Mockito.mock
-import org.mockito.invocation.InvocationOnMock
 import org.mockito.junit.MockitoJUnitRunner
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
-import org.mockito.stubbing.Answer
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 
 /**
- * TODO Write documentation.
- */
+ * This class is used to test the DoubleRatchetList class.
+ * */
 @RunWith(MockitoJUnitRunner::class)
 class DoubleRatchetListLocalTest {
 
     @Mock
     private lateinit var mockContext: Context
 
+    /**
+     * Creates the mock object that is used as the context parameter for the list.
+     */
     @Before
     fun createMockContext() {
         mockContext = mock()
-        whenever(mockContext.openFileInput(DoubleRatchetList.FILENAME)).thenAnswer(
-            Answer<FileInputStream>() {
-                FileInputStream(
-                    TMP_PATH + DoubleRatchetList.FILENAME
-                )
-            }
-        )
         whenever(
-            mockContext.openFileOutput(
-                DoubleRatchetList.FILENAME,
-                Context.MODE_PRIVATE
-            )
-        ).thenAnswer(
-            Answer<FileOutputStream>() {
-                FileOutputStream(
-                    TMP_PATH + DoubleRatchetList.FILENAME
-                )
-            }
-        )
-        whenever(mockContext.deleteFile(DoubleRatchetList.FILENAME)).thenAnswer(
-            Answer<Boolean>() {
-                File(TMP_PATH + DoubleRatchetList.FILENAME).delete()
-            }
-        )
+            mockContext.openFileInput(DoubleRatchetList.FILENAME)
+        ).thenAnswer {
+            FileInputStream(TMP_PATH + DoubleRatchetList.FILENAME)
+        }
+        whenever(
+            mockContext.openFileOutput(DoubleRatchetList.FILENAME, Context.MODE_PRIVATE)
+        ).thenAnswer {
+            FileOutputStream(TMP_PATH + DoubleRatchetList.FILENAME)
+        }
+        whenever(
+            mockContext.deleteFile(DoubleRatchetList.FILENAME)
+        ).thenAnswer {
+            File(TMP_PATH + DoubleRatchetList.FILENAME).delete()
+        }
+
     }
 
     /**
@@ -72,7 +61,7 @@ class DoubleRatchetListLocalTest {
     @Test
     fun canInitializeDoubleRatchetListLocally() {
         val context = mockContext
-        val doubleRatchetList = DoubleRatchetList(context)
+        DoubleRatchetList(context)
     }
 
     /**
@@ -130,9 +119,11 @@ class DoubleRatchetListLocalTest {
         val bobPublicKeyEd = Key.fromBytes(bobSSBid.verifyKey)
         val aliceSharedSecret = SSBDoubleRatchet.calculateSharedSecretEd(aliceSSBid, bobPublicKeyEd)
         val bobSharedSecret = SSBDoubleRatchet.calculateSharedSecretEd(bobSSBid, alicePublicKeyEd)
+        assert(aliceSharedSecret == bobSharedSecret)
+        val bobPublicKeyCurve = SSBDoubleRatchet.publicEDKeyToCurve(bobPublicKeyEd)
         val bobKeyPairCurve = SSBDoubleRatchet.ssbIDToCurve(bobSSBid)
         var aliceDoubleRatchet: SSBDoubleRatchet? =
-            SSBDoubleRatchet(aliceSharedSecret, bobPublicKeyEd)
+            SSBDoubleRatchet(aliceSharedSecret, bobPublicKeyCurve)
         var bobDoubleRatchet: SSBDoubleRatchet? = SSBDoubleRatchet(bobSharedSecret, bobKeyPairCurve)
         // Add them to the list.
         doubleRatchetList[aliceRatchetID] = aliceDoubleRatchet!!
@@ -149,9 +140,6 @@ class DoubleRatchetListLocalTest {
         // Encrypt message.
         val alicePlaintext1 = "It's down there somewhere, let me take another look."
         val aliceCiphertext1 = aliceDoubleRatchet!!.encryptString(alicePlaintext1)
-        // Decrypt message.
-        val bobDecrypted1 = bobDoubleRatchet!!.decryptString(aliceCiphertext1)
-        assert(bobDecrypted1 == alicePlaintext1)
 
         // Persist and deserialize.
         doubleRatchetList.persist()
@@ -162,7 +150,7 @@ class DoubleRatchetListLocalTest {
         assert(bobDoubleRatchet != null)
 
         // Decrypt message.
-        val bobDecrypted1FIXME = bobDoubleRatchet!!.decryptString(aliceCiphertext1)
+        val bobDecrypted1 = bobDoubleRatchet!!.decryptString(aliceCiphertext1)
         assert(bobDecrypted1 == alicePlaintext1)
 
         // Persist and deserialize.
@@ -237,6 +225,8 @@ class DoubleRatchetListLocalTest {
         val aliceDecrypted2 = aliceDoubleRatchet!!.decryptString(bobCiphertext2)
         assert(aliceDecrypted2 == bobPlaintext2)
     }
+
+    // TODO Add more tests. What if decryption fails, ...?
 
     companion object {
 
