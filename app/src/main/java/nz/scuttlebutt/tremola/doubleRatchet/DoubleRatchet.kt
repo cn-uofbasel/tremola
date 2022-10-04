@@ -8,6 +8,7 @@ import com.goterl.lazysodium.SodiumAndroid
 import com.goterl.lazysodium.interfaces.*
 import com.goterl.lazysodium.utils.Key
 import com.goterl.lazysodium.utils.KeyPair
+import org.json.JSONException
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.util.*
@@ -140,7 +141,27 @@ open class DoubleRatchet {
         messageNumberSending = jsonObject.getInt(MESSAGE_NUMBER_SENDING)
         messageNumberReceiving = jsonObject.getInt(MESSAGE_NUMBER_RECEIVING)
         previousChainLength = jsonObject.getInt(PREVIOUS_CHAIN_LENGTH)
-        val messageKeysSkippedJSONObject = jsonObject.get(MESSAGE_KEYS_SKIPPED) as JSONObject
+        Log.d(
+            TAG, "Deserializing. messageKeysSkipped in JSONObject: ${
+                jsonObject.get(
+                    MESSAGE_KEYS_SKIPPED
+                )
+            }"
+        )
+        var messageKeysSkippedJSONObject = JSONObject()
+        try {
+            val messageKeySkippedString = jsonObject.getString(MESSAGE_KEYS_SKIPPED)
+            messageKeysSkippedJSONObject = JSONObject(messageKeySkippedString)
+            Log.d(TAG, "messageKeysSkipped was a string.")
+        } catch (e: JSONException) {
+            Log.i(TAG, "messageKeysSkipped was not a string.")
+        }
+        try {
+            messageKeysSkippedJSONObject = jsonObject.getJSONObject(MESSAGE_KEYS_SKIPPED)
+            Log.d(TAG, "messageKeysSkipped was a JSONObject.")
+        } catch (e: JSONException) {
+            Log.i(TAG, "messageKeysSkipped was not a JSONObject.")
+        }
         messageKeysSkipped = Hashtable<String, Key>(messageKeysSkippedJSONObject.length())
         for (key in messageKeysSkippedJSONObject.keys()) {
             val entryValue = messageKeysSkippedJSONObject.getString(key)
@@ -337,10 +358,11 @@ open class DoubleRatchet {
         Log.d(TAG, "associatedData: $associatedData")
         try {
             return decrypt(messageKey, encodedEncryptedMessage, concatenate(associatedData, header))
-        } catch (e: AEADBadTagException) {
+        } catch (aeadBadTagException: AEADBadTagException) {
             Log.d(TAG, "Decryption failed. Will reset to old values.")
             resetToOldValues(oldStateSerialized)
-            throw e
+            Log.d(TAG, "Successfully reset to old values.")
+            throw aeadBadTagException
         }
     }
 
