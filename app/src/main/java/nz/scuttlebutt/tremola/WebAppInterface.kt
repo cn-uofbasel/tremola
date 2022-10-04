@@ -193,6 +193,21 @@ class WebAppInterface(
                 // This only encrypts if it is a chat between two people, otherwise text is same
                 val ciphertext = encryptWithDoubleRatchet(messageText, users)
                 val rawStr = tremolaState.msgTypes.mkPost(ciphertext, args.slice(2..args.lastIndex))
+                // This message was encrypted with DoubleRatchet. Thus, it also has to be sent
+                // to the frontend, since it cannot be decrypted as log.
+                if (ciphertext != messageText) {
+                    val plaintextRawStr =
+                        tremolaState.msgTypes.mkPost(messageText, args.slice(2..args.lastIndex))
+                    val plaintextEvent = tremolaState.msgTypes.jsonToLogEntry(
+                        plaintextRawStr,
+                        plaintextRawStr.encodeToByteArray()
+                    )
+                    if (plaintextEvent != null) {
+                        sendEventToFrontend(plaintextEvent, shouldDecrypt = false)
+                    } else {
+                        Log.e(TAG, "Failed to create plaintextEvent.")
+                    }
+                }
                 val event = tremolaState.msgTypes.jsonToLogEntry(
                     rawStr,
                     rawStr.encodeToByteArray()
@@ -350,8 +365,9 @@ class WebAppInterface(
      * appropriately formatted JSON string. If the message is encrypted using DoubleRatchet,
      * decrypts it.
      * @param event The LogEntry that was just created and should go to the frontend.
+     * @param shouldDecrypt Optional parameter that allows to disable the decryption step.
      */
-    private fun sendEventToFrontend(event: LogEntry) {
+    private fun sendEventToFrontend(event: LogEntry, shouldDecrypt: Boolean = true) {
         // Log.d("MSG added", event.ref.toString())
         // FIXME The app cannot yet display the messages you sent yourself.
         //  Currently, they cannot be decrypted since we do not keep the keys of sent messages.
@@ -361,8 +377,10 @@ class WebAppInterface(
         hdr.put("seq", event.lsq)
         hdr.put("pre", event.pre)
         hdr.put("tst", event.tst)
-        // Only decrypts if it is a two person chat. Always creates the expected confid string.
-        val confidString = decryptWithDoubleRatchet(event)
+
+        // Only decrypts if it is a two-person chat. Always creates the expected confid string.
+        // If decrypt is set to false, does not use the double ratchet to decrypt.
+        val confidString = createConfidString(event, shouldDecrypt)
         var cmd = "b2f_new_event({header:$hdr,"
         cmd += "public:" + (if (event.pub == null) "null" else event.pub) + ","
         cmd += "confid:$confidString"
@@ -430,13 +448,15 @@ class WebAppInterface(
     }
 
     /**
-     * Takes an incoming event and decrypts it if it is a message in a two person chat. Even if it
-     * is not, creates the appropriate String to send to the frontend.
+     * Takes an incoming event and decrypts it if it is a message in a two-person chat and
+     * shouldDecrypt is set to true. Even if the conditions are not true, creates the appropriate
+     * String to send to the frontend.
      * @param event The LogEntry that represents the new log message.
+     * @param shouldDecrypt If set to false, does not use the DoubleRatchet to decrypt.
      * @return The confidString, a stringified JSON object that contains the fields: type, text,
      * recps and mentions.
      */
-    private fun decryptWithDoubleRatchet(event: LogEntry): String {
+    private fun createConfidString(event: LogEntry, shouldDecrypt: Boolean): String {
         val eventPriJSONObject = if (event.pri == null) {
             Log.d(TAG, "sendEventToFrontend: event.pri is null.")
             JSONObject("")
@@ -451,12 +471,15 @@ class WebAppInterface(
             val messageCiphertext = eventPriJSONObject.getString(TEXT)
             val recipientsJSONArray = eventPriJSONObject.getJSONArray(RECPS)
             var messagePlaintext = ""
-            if (recipientsJSONArray.length() == 2) { // Chat between two people, use DoubleRatchet.
+            // Chat between two people, use DoubleRatchet.
+            if (recipientsJSONArray.length() == 2 && shouldDecrypt) {
                 val doubleRatchetList = tremolaState.doubleRatchetList
                 val recipientsStringArray =
                     arrayOf(recipientsJSONArray.getString(0), recipientsJSONArray.getString(1))
                 val chatName = doubleRatchetList.deriveChatName(recipientsStringArray)
                 var doubleRatchet = doubleRatchetList[chatName]
+                // TODO If one is found, but the sender created their own, only use the older one.
+                //  This can happen if both send a message while offline.
                 if (doubleRatchet == null) { // No ratchet exists for this chat, create new ratchet.
                     var recipient = ""
                     val mySSBId = tremolaState.idStore.identity
@@ -474,8 +497,8 @@ class WebAppInterface(
                                 mySSBId,
                                 otherPublicKeyEd
                             )
-                        doubleRatchetList[chatName] =
-                            SSBDoubleRatchet(sharedSecret, ownSSBKeyPairCurve)
+                        val ssbDoubleRatchet = SSBDoubleRatchet(sharedSecret, ownSSBKeyPairCurve)
+                        doubleRatchetList[chatName] = ssbDoubleRatchet
                         doubleRatchet = doubleRatchetList[chatName]
                     } catch (e: SodiumException) {
                         Log.e(TAG, "Failed to convert other public key.")
@@ -496,8 +519,8 @@ class WebAppInterface(
                 }
                 try {
                     messagePlaintext = doubleRatchet.decryptString(messageCiphertext)
-                } catch (e: AEADBadTagException) {
-                    Log.w(TAG, e.stackTraceToString())
+                } catch (aeadBadTagException: AEADBadTagException) {
+                    Log.w(TAG, aeadBadTagException.stackTraceToString())
                 } // TODO If empty text arrives at frontend, ignore it.
                 doubleRatchetList.persist()
             } else {
