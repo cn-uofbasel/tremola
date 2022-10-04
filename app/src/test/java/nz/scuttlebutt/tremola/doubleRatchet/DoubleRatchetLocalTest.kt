@@ -8,6 +8,7 @@ import com.goterl.lazysodium.utils.Key
 import org.json.JSONObject
 import org.junit.Test
 import java.nio.charset.StandardCharsets
+import javax.crypto.AEADBadTagException
 
 class DoubleRatchetLocalTest {
 
@@ -817,6 +818,71 @@ class DoubleRatchetLocalTest {
 
         }
         assert(!exceptionWasCaught)
+    }
+
+    /**
+     * This tests that if a decryption fails, it is still able to decrypt the next correct message
+     * without any issues.
+     */
+    @Test
+    fun resetsStateCorrectlyAfterReceivingCorruptedMessage() {
+        val aliceDiffieHellmanKeyPair = DoubleRatchet.generateDH()
+        val bobDiffieHellmanKeyPair = DoubleRatchet.generateDH()
+        assert(aliceDiffieHellmanKeyPair != bobDiffieHellmanKeyPair)
+        val aliceSharedSecret = DoubleRatchet.diffieHellman(
+            aliceDiffieHellmanKeyPair,
+            bobDiffieHellmanKeyPair.publicKey
+        )
+        val bobSharedSecret = DoubleRatchet.diffieHellman(
+            bobDiffieHellmanKeyPair,
+            aliceDiffieHellmanKeyPair.publicKey
+        )
+        assert(aliceSharedSecret == bobSharedSecret)
+        // Alice sent the first message, creates ratchets accordingly.
+        val aliceRatchet = DoubleRatchet(aliceSharedSecret, bobDiffieHellmanKeyPair.publicKey)
+        val bobRatchet = DoubleRatchet(bobSharedSecret, bobDiffieHellmanKeyPair)
+        // Alice prepares the message to be sent.
+        val aliceMessage = "Bob, you are my best friend!"
+        val aliceCiphertext = aliceRatchet.encryptString(aliceMessage)
+        // String is sent to Bob here.
+        val bobDecrypted = bobRatchet.decryptString(aliceCiphertext)
+        assert(aliceMessage == bobDecrypted)
+        // Bob prepares the reply to be sent.
+        val bobMessage = "Alice, you are also my best friend!"
+        val bobCiphertext = bobRatchet.encryptString(bobMessage)
+        // String is sent to Alice here.
+        val aliceDecrypted = aliceRatchet.decryptString(bobCiphertext)
+        assert(bobMessage == aliceDecrypted)
+        // Another message from Alice.
+        val aliceMessage2 = "Do you want to hang out some time?"
+        val aliceCiphertext2 = aliceRatchet.encryptString(aliceMessage2)
+        // Get the first character of the ciphertext, replace it
+        val corruptedCharacter = if (aliceCiphertext2[167] == 'a') {
+            'b'
+        } else {
+            'a'
+        }
+        val corruptedAliceCiphertext2 = aliceCiphertext2.slice(0..166) + corruptedCharacter +
+                aliceCiphertext2.slice(168..aliceCiphertext2.lastIndex)
+        assert(aliceCiphertext2 != corruptedAliceCiphertext2)
+        println("original:  $aliceCiphertext2")
+        println("corrupted: $corruptedAliceCiphertext2")
+        // Corrupted String is sent to Bob here.
+        var exceptionWasThrown = false
+        try {
+            bobRatchet.decryptString(corruptedAliceCiphertext2)
+        } catch (e: AEADBadTagException) { // This is expected to be thrown.
+            exceptionWasThrown = true
+        }
+        assert(exceptionWasThrown)
+        // Correct String is sent to Bob here.
+        val bobDecrypted2 = bobRatchet.decryptString(aliceCiphertext2)
+        assert(aliceMessage2 == bobDecrypted2)
+        // Bob prepares the reply to be sent.
+        val bobMessage2 = "Of course! Meet up at 12?"
+        val bobCiphertext2 = bobRatchet.encryptString(bobMessage2)
+        val aliceDecrypted2 = aliceRatchet.decryptString(bobCiphertext2)
+        assert(bobMessage2 == aliceDecrypted2)
     }
 
     companion object {
