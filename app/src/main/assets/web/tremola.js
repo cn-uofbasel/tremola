@@ -905,6 +905,9 @@ function b2f_new_event(e) {
     // console.log('pub', JSON.stringify(e.public))
     // console.log('cfd', JSON.stringify(e.confid))
     if (e.confid && e.confid.type === 'post') {
+        if (e.confid.text === "") { // Message is empty or failed to decrypt: Do nothing.
+            return
+        }
         let i, conv_name = recps2nm(e.confid.recps);
         if (!(conv_name in tremola.chats)) { // Create new conversation if needed.
             tremola.chats[conv_name] = {
