@@ -20,6 +20,7 @@ import java.io.InputStreamReader
  */
 @RequiresApi(Build.VERSION_CODES.O)
 class DoubleRatchetList(private val context: Context) {
+
     private var list: HashMap<String, SSBDoubleRatchet> = deserializeList()
 
     /**
@@ -58,13 +59,13 @@ class DoubleRatchetList(private val context: Context) {
      */
     fun persist() {
         val stringifiedList = this.serialize()
-        val outputStream = context.openFileOutput(FILENAME, Context.MODE_PRIVATE)
         try {
             try {
                 context.deleteFile(FILENAME)
             } catch (e: java.lang.Exception) {
                 Log.e("DoubleRatchetList", "Error when deleting DoubleRatchetList file.")
             }
+            val outputStream = context.openFileOutput(FILENAME, Context.MODE_PRIVATE)
             outputStream.write(stringifiedList.encodeToByteArray())
             outputStream.close()
         } catch (e: Exception) {
@@ -110,7 +111,7 @@ class DoubleRatchetList(private val context: Context) {
                 listHashMap[key] = SSBDoubleRatchet(serializedSSBDoubleRatchet)
             }
             return listHashMap
-        } catch (e: FileNotFoundException) {
+        } catch (e: FileNotFoundException) { // No persisted list found, make new one.
             return HashMap()
         }
     }
