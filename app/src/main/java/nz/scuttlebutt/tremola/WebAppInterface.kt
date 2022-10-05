@@ -493,7 +493,7 @@ class WebAppInterface(
                         val ownSSBKeyPairCurve =
                             SSBDoubleRatchet.ssbIDToCurve(mySSBId)
                         val sharedSecret =
-                            SSBDoubleRatchet.calculateSharedSecretCurve(
+                            SSBDoubleRatchet.calculateSharedSecretEd(
                                 mySSBId,
                                 otherPublicKeyEd
                             )
