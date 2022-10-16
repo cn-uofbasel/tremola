@@ -34,7 +34,8 @@ import javax.crypto.AEADBadTagException
 
 // TODO This file needs to be thoroughly checked on whether arbitrary code execution can be achieved
 //  due to the fact that eval() statements are called with variables in them which could contain
-//  malicious user input.
+//  malicious user input and the fact that XSS might be possible by not properly escaping messages
+//  that are displayed in the Posts scenario.
 
 /**
  * This class is the interface to the frontend and is called from it. This is only a one way
@@ -65,7 +66,9 @@ class WebAppInterface(
     @JavascriptInterface
     fun onFrontendRequest(s: String) {
         // Handle the data captured from webView.
-        Log.d("FrontendRequest", s)
+        if (DEBUG) {
+            Log.d("FrontendRequest", s)
+        }
         val args = s.split(" ")
 
         // Execute different code based on what the first word of s is.
@@ -182,9 +185,6 @@ class WebAppInterface(
             }
 
             // Post a private chat message. Uses DoubleRatchet if the chat is between two people.
-            // FIXME Your own posts are displayed to you encrypted.
-            //  DoubleRatchetList does not persist dhPublic or n (at least) in between restarts.
-            //  Posts cannot yet be decrypted by other people.
             "priv:post" -> {
                 // The arguments are: atob(text) recipient1 recipient2 ...
                 // Recipients include yourself and contain the whole ID (@A..A=.ed25519).
@@ -205,14 +205,18 @@ class WebAppInterface(
                     if (plaintextEvent != null) {
                         sendEventToFrontend(plaintextEvent, shouldDecrypt = false)
                     } else {
-                        Log.e(TAG, "Failed to create plaintextEvent.")
+                        if (DEBUG) {
+                            Log.e(TAG, "Failed to create plaintextEvent.")
+                        }
                     }
                 }
                 val event = tremolaState.msgTypes.jsonToLogEntry(
                     rawStr,
                     rawStr.encodeToByteArray()
                 )
-                Log.d(TAG, "priv:post: posted event: " + event.toString())
+                if (DEBUG) {
+                    Log.d(TAG, "priv:post: posted event: " + event.toString())
+                }
                 event?.let { rxEvent(it) } // Persist it, propagate horizontally and also up.
                 return
             }
@@ -221,7 +225,9 @@ class WebAppInterface(
             "priv:hash" -> {
                 // The argument is the name of the method to call with the result of the hash.
                 val shortname = id2(args[1])
-                Log.e("SHORT", shortname + ": " + args[1] + " and " + args[2])
+                if (DEBUG) {
+                    Log.e("SHORT", shortname + ": " + args[1] + " and " + args[2])
+                }
                 eval("${args[2]}('" + shortname + "', '" + args[1] + "')")
             }
 
@@ -266,16 +272,22 @@ class WebAppInterface(
                     val send = lookup!!.prepareQuery(shortname)
                     if (send != null)
                         lookup.sendQuery(send)
-                    else
+                    else if (DEBUG)
                         Log.d("LOOKUP", "$shortname is already in contacts.")
                 } catch (e: IOException) {
-                    Log.e("BROADCAST", "Failed to obtain broadcast address.")
+                    if (DEBUG) {
+                        Log.e("BROADCAST", "Failed to obtain broadcast address.")
+                    }
                 } catch (e: Exception) {
-                    Log.e("BROADCAST", e.stackTraceToString())
+                    if (DEBUG) {
+                        Log.e("BROADCAST", e.stackTraceToString())
+                    }
                 }
             }
             else -> {
-                Log.d("onFrontendRequest", "Unknown command string.")
+                if (DEBUG) {
+                    Log.d("onFrontendRequest", "Unknown command string.")
+                }
             }
         }
         /*
@@ -317,9 +329,11 @@ class WebAppInterface(
      * @return True if it worked, false if something failed.
      */
     private fun importIdentity(secret: String): Boolean {
-        Log.d("D/importIdentity", secret)
+        if (DEBUG) {
+            Log.d("D/importIdentity", secret)
+        }
         if (tremolaState.idStore.setNewIdentity(Base64.decode(secret, Base64.DEFAULT))) {
-            // TODO: Remove all decrypted content in the database, try to decode new one.
+            // TODO Remove all decrypted content in the database, try to decode new one.
             Toast.makeText(
                 act, "Imported of ID worked. You must restart the app.",
                 Toast.LENGTH_SHORT
@@ -337,7 +351,9 @@ class WebAppInterface(
      * @param pubString Contains the address of the pub.
      */
     private fun addPub(pubString: String) {
-        Log.d("D/addPub", pubString)
+        if (DEBUG) {
+            Log.d("D/addPub", pubString)
+        }
         val components = pubString.split(":")
         tremolaState.addPub(
             Pub(
@@ -369,8 +385,6 @@ class WebAppInterface(
      */
     private fun sendEventToFrontend(event: LogEntry, shouldDecrypt: Boolean = true) {
         // Log.d("MSG added", event.ref.toString())
-        // FIXME The app cannot yet display the messages you sent yourself.
-        //  Currently, they cannot be decrypted since we do not keep the keys of sent messages.
         val hdr = JSONObject()
         hdr.put("ref", event.hid)
         hdr.put("fid", event.lid)
@@ -383,9 +397,13 @@ class WebAppInterface(
         val confidString = createConfidString(event, shouldDecrypt)
         var cmd = "b2f_new_event({header:$hdr,"
         cmd += "public:" + (if (event.pub == null) "null" else event.pub) + ","
+        // FIXME If the confidString is not thoroughly checked, arbitrary code execution is
+        //  possible.
         cmd += "confid:$confidString"
         cmd += "});"
-        Log.d("CMD", cmd)
+        if (DEBUG) {
+            Log.d("CMD", cmd)
+        }
         eval(cmd)
     }
 
@@ -423,18 +441,24 @@ class WebAppInterface(
                         SSBDoubleRatchet(sharedSecret, otherPublicKeyCurve)
                     doubleRatchet = doubleRatchetList[chatName]
                 } catch (e: SodiumException) {
-                    Log.e(TAG, "Failed to convert other public key.")
-                    Log.e(TAG, e.stackTraceToString())
+                    if (DEBUG) {
+                        Log.e(TAG, "Failed to convert other public key.")
+                        Log.e(TAG, e.stackTraceToString())
+                    }
                     if (e.message != null) {
-                        Log.e(TAG, e.message!!)
+                        if (DEBUG) {
+                            Log.e(TAG, e.message!!)
+                        }
                     }
                 }
             }
             if (doubleRatchet == null) {
-                Log.e(
-                    TAG,
-                    "Failed to create DoubleRatchet when sending message."
-                )
+                if (DEBUG) {
+                    Log.e(
+                        TAG,
+                        "Failed to create DoubleRatchet when sending message."
+                    )
+                }
                 throw Exception(
                     "WebAppInterface, failed to create DoubleRatchet when sending message."
                 )
@@ -458,10 +482,14 @@ class WebAppInterface(
      */
     private fun createConfidString(event: LogEntry, shouldDecrypt: Boolean): String {
         val eventPriJSONObject = if (event.pri == null) {
-            Log.d(TAG, "sendEventToFrontend: event.pri is null.")
+            if (DEBUG) {
+                Log.d(TAG, "sendEventToFrontend: event.pri is null.")
+            }
             JSONObject("")
         } else {
-            Log.d(TAG, "sendEventToFrontend: Contents of pri: ${event.pri}.")
+            if (DEBUG) {
+                Log.d(TAG, "sendEventToFrontend: Contents of pri: ${event.pri}.")
+            }
             JSONObject(event.pri!!)
         }
         val confidJSONObject = JSONObject()
@@ -501,18 +529,24 @@ class WebAppInterface(
                         doubleRatchetList[chatName] = ssbDoubleRatchet
                         doubleRatchet = doubleRatchetList[chatName]
                     } catch (e: SodiumException) {
-                        Log.e(TAG, "Failed to convert other public key.")
-                        Log.e(TAG, e.stackTraceToString())
+                        if (DEBUG) {
+                            Log.e(TAG, "Failed to convert other public key.")
+                            Log.e(TAG, e.stackTraceToString())
+                        }
                         if (e.message != null) {
-                            Log.e(TAG, e.message!!)
+                            if (DEBUG) {
+                                Log.e(TAG, e.message!!)
+                            }
                         }
                     }
                 }
                 if (doubleRatchet == null) {
-                    Log.e(
-                        TAG,
-                        "Failed to create DoubleRatchet when receiving message."
-                    )
+                    if (DEBUG) {
+                        Log.e(
+                            TAG,
+                            "Failed to create DoubleRatchet when receiving message."
+                        )
+                    }
                     throw Exception(
                         "WebAppInterface, failed to create DoubleRatchet when sending message."
                     )
@@ -520,8 +554,10 @@ class WebAppInterface(
                 try {
                     messagePlaintext = doubleRatchet.decryptString(messageCiphertext)
                 } catch (aeadBadTagException: AEADBadTagException) {
-                    Log.w(TAG, aeadBadTagException.stackTraceToString())
-                } // TODO If empty text arrives at frontend, ignore it.
+                    if (DEBUG) {
+                        Log.w(TAG, aeadBadTagException.stackTraceToString())
+                    }
+                }
                 doubleRatchetList.persist()
             } else {
                 messagePlaintext = messageCiphertext
@@ -530,20 +566,26 @@ class WebAppInterface(
             confidJSONObject.put(RECPS, recipientsJSONArray)
             confidString = confidJSONObject.toString()
         } catch (e: JSONException) {
-            Log.d(
-                TAG, "sendEventToFrontend: JSONException when " +
-                        "trying to read JSONObject of event.pri"
-            )
+            if (DEBUG) {
+                Log.d(
+                    TAG, "sendEventToFrontend: JSONException when " +
+                            "trying to read JSONObject of event.pri"
+                )
+            }
             if (event.pri != null) {
                 confidString = event.pri!!
             }
         } catch (e: SodiumException) {
-            Log.d(
-                TAG, "sendEventToFrontend: SodiumException when trying to" +
-                        "decrypt a message."
-            )
+            if (DEBUG) {
+                Log.d(
+                    TAG, "sendEventToFrontend: SodiumException when trying to" +
+                            "decrypt a message."
+                )
+            }
             e.message?.let { Log.d(TAG, it) }
-            Log.d(TAG, e.stackTraceToString())
+            if (DEBUG) {
+                Log.d(TAG, e.stackTraceToString())
+            }
         }
         return confidString
     }
@@ -561,5 +603,7 @@ class WebAppInterface(
         /** Used as the tag in logging statements. */
         private const val TAG = "WebAppInterface"
 
+        /** False in production to avoid logging potentially sensitive data, true for debugging. */
+        private const val DEBUG = false
     }
 }
