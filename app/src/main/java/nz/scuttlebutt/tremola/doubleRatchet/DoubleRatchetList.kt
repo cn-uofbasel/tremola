@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import nz.scuttlebutt.tremola.doubleRatchet.DoubleRatchet.Companion.DEBUG
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.FileNotFoundException
@@ -16,7 +17,7 @@ import java.io.InputStreamReader
  * @property list The actual list is a HashMap of chat names and the SSBDoubleRatchet objects.
  * Typically, the chat names are derived using [deriveChatName].
  * TODO Handle case where both participants send the first message.
- * FIXME DoubleRatchetList does not persist dhPublic or n (at least) in between restarts.
+ *  Use more secure methods to save file.
  */
 @RequiresApi(Build.VERSION_CODES.O)
 class DoubleRatchetList(private val context: Context) {
@@ -63,13 +64,17 @@ class DoubleRatchetList(private val context: Context) {
             try {
                 context.deleteFile(FILENAME)
             } catch (e: java.lang.Exception) {
-                Log.e("DoubleRatchetList", "Error when deleting DoubleRatchetList file.")
+                if (DEBUG) {
+                    Log.e("DoubleRatchetList", "Error when deleting DoubleRatchetList file.")
+                }
             }
             val outputStream = context.openFileOutput(FILENAME, Context.MODE_PRIVATE)
             outputStream.write(stringifiedList.encodeToByteArray())
             outputStream.close()
         } catch (e: Exception) {
-            Log.e("DoubleRatchetList", "Unable to persist.")
+            if (DEBUG) {
+                Log.e("DoubleRatchetList", "Unable to persist.")
+            }
             e.printStackTrace()
         }
     }
@@ -84,7 +89,9 @@ class DoubleRatchetList(private val context: Context) {
             if (list[key] != null) {
                 listJSONObject.put(key, list[key]!!.serialize())
             } else {
-                Log.e("DoubleRatchetList", "Empty value in list.")
+                if (DEBUG) {
+                    Log.e("DoubleRatchetList", "Empty value in list.")
+                }
             }
         }
         return listJSONObject.toString()

@@ -103,11 +103,13 @@ class SSBDoubleRatchet : DoubleRatchet {
          */
         @RequiresApi(Build.VERSION_CODES.O)
         fun publicEDKeyToCurve(publicEDKey: Key): Key {
-            Log.d(
-                "SSBDoubleRatchet",
-                "Called with key " + base64Encoder.encode(publicEDKey.asBytes)
-                    .toString(StandardCharsets.UTF_8)
-            )
+            if (DEBUG) {
+                Log.d(
+                    "SSBDoubleRatchet",
+                    "Called with key " + base64Encoder.encode(publicEDKey.asBytes)
+                        .toString(StandardCharsets.UTF_8)
+                )
+            }
             val numOfBytes: Int = DiffieHellman.SCALARMULT_CURVE25519_BYTES
             val edByteArray = publicEDKey.asBytes
             val curveByteArray = ByteArray(numOfBytes)
@@ -115,13 +117,15 @@ class SSBDoubleRatchet : DoubleRatchet {
             if (result) {
                 return Key.fromBytes(curveByteArray)
             } else {
-                Log.e("SSBDoubleRatchet", "publicEDKeyToCurve: No result from conversion.")
-                Log.e("SSBDoubleRatchet", "publicEDKeyToCurve: Was called with :")
-                Log.e(
-                    "SSBDoubleRatchet",
-                    "publicEDKeyToCurve: " + base64Encoder.encode(publicEDKey.asBytes)
-                        .toString(StandardCharsets.UTF_8)
-                )
+                if (DEBUG) {
+                    Log.e("SSBDoubleRatchet", "publicEDKeyToCurve: No result from conversion.")
+                    Log.e("SSBDoubleRatchet", "publicEDKeyToCurve: Was called with :")
+                    Log.e(
+                        "SSBDoubleRatchet",
+                        "publicEDKeyToCurve: " + base64Encoder.encode(publicEDKey.asBytes)
+                            .toString(StandardCharsets.UTF_8)
+                    )
+                }
                 throw SodiumException(
                     "Could not convert public key: " + base64Encoder.encode(
                         publicEDKey.asBytes
@@ -131,8 +135,8 @@ class SSBDoubleRatchet : DoubleRatchet {
         }
 
         /**
-         * Takes an [SSBid] containing two Ed25519 keys and the public Ed25519 key of someone else and
-         * calculates a shared secret.
+         * Takes an [SSBid] containing two Ed25519 keys and the public Ed25519 key of someone else
+         * and calculates a shared secret.
          * @param ownSSBid Your own [SSBid].
          * @param otherPublicEDKey The key of your correspondent, in Ed25519.
          * @return Shared secret, a scalar multiplication of your private key and someone else's

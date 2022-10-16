@@ -141,26 +141,36 @@ open class DoubleRatchet {
         messageNumberSending = jsonObject.getInt(MESSAGE_NUMBER_SENDING)
         messageNumberReceiving = jsonObject.getInt(MESSAGE_NUMBER_RECEIVING)
         previousChainLength = jsonObject.getInt(PREVIOUS_CHAIN_LENGTH)
-        Log.d(
-            TAG, "Deserializing. messageKeysSkipped in JSONObject: ${
-                jsonObject.get(
-                    MESSAGE_KEYS_SKIPPED
-                )
-            }"
-        )
+        if (DEBUG) {
+            Log.d(
+                TAG, "Deserializing. messageKeysSkipped in JSONObject: ${
+                    jsonObject.get(
+                        MESSAGE_KEYS_SKIPPED
+                    )
+                }"
+            )
+        }
         var messageKeysSkippedJSONObject = JSONObject()
         try {
             val messageKeySkippedString = jsonObject.getString(MESSAGE_KEYS_SKIPPED)
             messageKeysSkippedJSONObject = JSONObject(messageKeySkippedString)
-            Log.d(TAG, "messageKeysSkipped was a string.")
+            if (DEBUG) {
+                Log.d(TAG, "messageKeysSkipped was a string.")
+            }
         } catch (e: JSONException) {
-            Log.i(TAG, "messageKeysSkipped was not a string.")
+            if (DEBUG) {
+                Log.i(TAG, "messageKeysSkipped was not a string.")
+            }
         }
         try {
             messageKeysSkippedJSONObject = jsonObject.getJSONObject(MESSAGE_KEYS_SKIPPED)
-            Log.d(TAG, "messageKeysSkipped was a JSONObject.")
+            if (DEBUG) {
+                Log.d(TAG, "messageKeysSkipped was a JSONObject.")
+            }
         } catch (e: JSONException) {
-            Log.i(TAG, "messageKeysSkipped was not a JSONObject.")
+            if (DEBUG) {
+                Log.i(TAG, "messageKeysSkipped was not a JSONObject.")
+            }
         }
         messageKeysSkipped = Hashtable<String, Key>(messageKeysSkippedJSONObject.length())
         for (key in messageKeysSkippedJSONObject.keys()) {
@@ -281,7 +291,9 @@ open class DoubleRatchet {
         // receiving and sending at the same time, maybe), but just in case we throw an exception
         // for debugging.
         if (chainKeySending == null) {
-            Log.e("DoubleRatchet:encryptMessage", "chainKeySending is missing.")
+            if (DEBUG) {
+                Log.e("DoubleRatchet:encryptMessage", "chainKeySending is missing.")
+            }
             throw Exception("DoubleRatchet:encryptMessage, chainKeySending is missing.")
         }
         // Get the new keys, make header.
@@ -294,10 +306,12 @@ open class DoubleRatchet {
         // Make a JSON object with the resulting values and stringify it.
         val jsonObject = JSONObject()
         jsonObject.put(HEADER, header)
-        Log.d(TAG, "Encrypting:")
-        Log.d(TAG, "plaintext: $plaintext")
-        Log.d(TAG, "header: $header")
-        Log.d(TAG, "associatedData: $associatedData")
+        if (DEBUG) {
+            Log.d(TAG, "Encrypting:")
+            Log.d(TAG, "plaintext: $plaintext")
+            Log.d(TAG, "header: $header")
+            Log.d(TAG, "associatedData: $associatedData")
+        }
         val encodedEncryptedMessage =
             encrypt(messageKey, plaintext, concatenate(associatedData, header))
         jsonObject.put(ENCODED_ENCRYPTED_MESSAGE, encodedEncryptedMessage)
@@ -344,7 +358,9 @@ open class DoubleRatchet {
         // receiving and sending at the same time, maybe), but just in case we throw an exception
         // for debugging.
         if (chainKeyReceiving == null) {
-            Log.e("DoubleRatchet:decryptMessage", "chainKeyReceiving is missing.")
+            if (DEBUG) {
+                Log.e("DoubleRatchet:decryptMessage", "chainKeyReceiving is missing.")
+            }
             throw Exception("DoubleRatchet:decryptMessage, chainKeyReceiving is missing.")
         }
         // Do a ratchet step and decrypt.
@@ -352,16 +368,22 @@ open class DoubleRatchet {
         chainKeyReceiving = chainRatchetResult.secretKey
         val messageKey = chainRatchetResult.publicKey
         messageNumberReceiving += 1
-        Log.d(TAG, "Decrypting:")
-        Log.d(TAG, "encodedEncryptedMessage: $encodedEncryptedMessage")
-        Log.d(TAG, "header: $header")
-        Log.d(TAG, "associatedData: $associatedData")
+        if (DEBUG) {
+            Log.d(TAG, "Decrypting:")
+            Log.d(TAG, "encodedEncryptedMessage: $encodedEncryptedMessage")
+            Log.d(TAG, "header: $header")
+            Log.d(TAG, "associatedData: $associatedData")
+        }
         try {
             return decrypt(messageKey, encodedEncryptedMessage, concatenate(associatedData, header))
         } catch (aeadBadTagException: AEADBadTagException) {
-            Log.d(TAG, "Decryption failed. Will reset to old values.")
+            if (DEBUG) {
+                Log.d(TAG, "Decryption failed. Will reset to old values.")
+            }
             resetToOldValues(oldStateSerialized)
-            Log.d(TAG, "Successfully reset to old values.")
+            if (DEBUG) {
+                Log.d(TAG, "Successfully reset to old values.")
+            }
             throw aeadBadTagException
         }
     }
@@ -404,7 +426,9 @@ open class DoubleRatchet {
     @RequiresApi(Build.VERSION_CODES.O)
     private fun skipMessageKeys(until: Int) {
         if (messageNumberReceiving + MAX_SKIP < until) { // Number of messages to skip is too big.
-            Log.e("DoubleRatchet:skipMessageKeys", "Too many skipped messages.")
+            if (DEBUG) {
+                Log.e("DoubleRatchet:skipMessageKeys", "Too many skipped messages.")
+            }
             throw Exception("DoubleRatchet:skipMessageKeys, too many skipped messages.")
         }
         // True unless this is the first message received.
@@ -415,7 +439,9 @@ open class DoubleRatchet {
                 val messageKey = chainRatchetResult.publicKey
                 val skippedMessageIdentifierObject = JSONObject()
                 if (dhReceived == null) {
-                    Log.e("DoubleRatchet:skipMessageKeys", "dhReceived is null.")
+                    if (DEBUG) {
+                        Log.e("DoubleRatchet:skipMessageKeys", "dhReceived is null.")
+                    }
                     throw Exception("DoubleRatchet:skipMessageKeys, dhReceived is null.")
                 }
                 val encodedDHPublic =
@@ -445,11 +471,15 @@ open class DoubleRatchet {
         val encodedDiffieHellman = headerObject.getString(DH_PUBLIC)
         dhReceived = Key.fromBase64String(encodedDiffieHellman)
         if (dhReceived == null) { // Something went wrong when decoding the key.
-            Log.e("DoubleRatchet:dhRatchet", "dhReceived is null.")
+            if (DEBUG) {
+                Log.e("DoubleRatchet:dhRatchet", "dhReceived is null.")
+            }
             throw Exception("DoubleRatchet:dhRatchet, dhReceived is null.")
         }
         if (dhReceived!!.asHexString == "") { // Something went wrong when decoding the key.
-            Log.e("DoubleRatchet:dhRatchet", "dhReceived is empty.")
+            if (DEBUG) {
+                Log.e("DoubleRatchet:dhRatchet", "dhReceived is empty.")
+            }
             throw Exception("DoubleRatchet:dhRatchet, dhReceived is empty.")
         }
         var rootRatchetResult =
@@ -778,5 +808,8 @@ open class DoubleRatchet {
 
         /** Used as tag in logging statements. */
         private const val TAG = "DoubleRatchet"
+
+        /** False in production to avoid logging potentially sensitive data, true for debugging. */
+        internal const val DEBUG = false
     }
 }
