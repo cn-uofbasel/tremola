@@ -74,8 +74,8 @@ class DoubleRatchetList(private val context: Context) {
         } catch (e: Exception) {
             if (DEBUG) {
                 Log.e("DoubleRatchetList", "Unable to persist.")
+                e.printStackTrace()
             }
-            e.printStackTrace()
         }
     }
 
