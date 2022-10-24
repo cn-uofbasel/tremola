@@ -384,7 +384,7 @@ class TimingLocalTest {
      * Measures the average time it takes to transform a Ed25519 key to a Curve25519 key.
      */
     @Test
-    fun measureTimeToTransformSSBIDoCurve25519() {
+    fun measureTimeToTransformSSBIDToCurve25519() {
         val timesNano = MutableList(SAMPLE_SIZE) { DEFAULT_TIME_VALUE }
 
         val bobSSBid = SSBid()
@@ -396,7 +396,7 @@ class TimingLocalTest {
             assert(timesNano[i] != DEFAULT_TIME_VALUE)
         }
 
-        logMeasurements("measureTimeToTransformSSBIDoCurve25519", timesNano)
+        logMeasurements("measureTimeToTransformSSBIDToCurve25519", timesNano)
     }
 
 
