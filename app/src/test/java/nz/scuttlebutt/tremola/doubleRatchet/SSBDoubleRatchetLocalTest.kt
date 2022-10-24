@@ -61,12 +61,14 @@ class SSBDoubleRatchetLocalTest {
 
     /**
      * This tests that with an illegal key, the publicEDKeyToCurve functions throws an exception.
+     * Sometimes no exception is thrown by random chance, repeat the test to see if it was an actual
+     * error or just a fluke.
      */
     @Test(expected = com.goterl.lazysodium.exceptions.SodiumException::class)
     fun publicEDKeyToCurveThrowsExceptionForIllegalKey() {
         val aliceSSB = SSBid()
-        val aliceEDPublicKey = Key.fromBytes(aliceSSB.signingKey)
-        SSBDoubleRatchet.publicEDKeyToCurve(aliceEDPublicKey)
+        val aliceEDPrivateKey = Key.fromBytes(aliceSSB.signingKey)
+        SSBDoubleRatchet.publicEDKeyToCurve(aliceEDPrivateKey)
     }
 
     /**
