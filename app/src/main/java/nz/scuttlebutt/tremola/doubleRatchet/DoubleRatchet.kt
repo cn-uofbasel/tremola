@@ -134,7 +134,7 @@ open class DoubleRatchet {
         }
         val chainKeyReceivingEncoded = jsonObject.getString(CHAIN_KEY_RECEIVING)
         chainKeyReceiving = if (chainKeyReceivingEncoded != "") {
-            Key.fromBase64String(chainKeySendingEncoded)
+            Key.fromBase64String(chainKeyReceivingEncoded)
         } else {
             null
         }
