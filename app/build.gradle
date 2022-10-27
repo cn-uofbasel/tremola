@@ -1,4 +1,3 @@
-
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
@@ -28,7 +27,7 @@ android {
             abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86'
         }
 
-        // testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled false
     }
 
@@ -86,20 +85,33 @@ dependencies {
     implementation 'com.google.android.material:material:1.4.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
 
+    // QR CODE
     implementation 'com.journeyapps:zxing-android-embedded:4.2.0'
     implementation 'com.google.zxing:core:3.4.1'
 
-    //LAZY SODIUM
+    // LAZY SODIUM
     implementation 'com.goterl:lazysodium-android:5.0.2@aar'
     implementation 'net.java.dev.jna:jna:5.9.0@aar'
 
-    //ROOM
+    // ROOM
     implementation 'androidx.room:room-runtime:2.2.0'
-    androidTestImplementation 'junit:junit:4.13.1'
     kapt 'androidx.room:room-compiler:2.2.0'
     implementation 'androidx.room:room-rxjava2:2.2.0'
     implementation "androidx.room:room-coroutines:2.1.0-alpha04"
     implementation 'androidx.room:room-guava:2.2.0'
     // testImplementation "androidx.room:room-testing:2.3.0"
+
+    // TESTS
+    androidTestImplementation 'junit:junit:4.12'
+    testImplementation "junit:junit:4.12"
+    testImplementation "org.mockito:mockito-core:4.8.0"
+    testImplementation "org.mockito.kotlin:mockito-kotlin:4.0.0"
+    testImplementation 'net.java.dev.jna:jna:5.9.0'
+    testImplementation 'com.goterl:lazysodium-java:5.1.1'
+    testImplementation 'org.json:json:20180813'
+    implementation 'androidx.test:monitor:1.4.0'
+    implementation 'androidx.test.ext:junit-ktx:1.1.3'
+    androidTestImplementation "androidx.test:runner:1.4.0"
+    androidTestImplementation "androidx.test:rules:1.4.0"
 
 }

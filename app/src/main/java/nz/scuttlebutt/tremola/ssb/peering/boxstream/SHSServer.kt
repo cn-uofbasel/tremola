@@ -17,7 +17,7 @@ import nz.scuttlebutt.tremola.ssb.core.SSBid
 
 class SHSServer(
     myId: SSBid,
-    networkIdentifier: ByteArray = Constants.SSB_NETWORKIDENTIFIER
+    networkIdentifier: ByteArray = Constants.SSB_NETWORK_IDENTIFIER
 ) : SHS(myId, networkIdentifier) {
     private var detachedSignature: ByteArray? = null
 

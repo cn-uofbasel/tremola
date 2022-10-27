@@ -18,7 +18,7 @@ import java.net.Socket
 class RpcInitiator(
     val tremolaState: TremolaState,
     val remoteKey: ByteArray,
-    val networkIdentifier: ByteArray = Constants.SSB_NETWORKIDENTIFIER
+    val networkIdentifier: ByteArray = Constants.SSB_NETWORK_IDENTIFIER
 ) : RpcLoop() {
 
     init {

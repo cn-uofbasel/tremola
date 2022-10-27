@@ -10,25 +10,18 @@ class HelperFunctions {
     companion object {
 
         /**
-         * Create a shortname from the hash of the public key.
-         *
-         *
-         * We are using [z-base-32](https://philzimmermann.com/docs/human-oriented-base-32-encoding.txt)
-         * for an easier relay of the shortName.
-         *
-         *
-         * With a 12 character Shortname we have a probability of 1% that
-         * 2 people have the same shortname with 152'231'720 users and
-         * 50% for 1'264'234'390 users (after the birthday paradox).
-         *
-         *
-         * For a 10 character Shortname, those numbers are resp. 4'757'241
-         * and 39'507'325. Using the subjective point of view of SSB,
-         * we assume that 10 characters are enough, with a thought on keeping
-         * it short enough for ease of use.
-         *
-         * @param key the public key
-         * @return the Shortname
+         * Create a shortname from the hash of the public key. <br>
+         * We are using
+         * [z-base-32](https://philzimmermann.com/docs/human-oriented-base-32-encoding.txt)
+         * for an easier relay of the shortname. <br>
+         * With a 12 character shortname we have a probability of 1% that 2 people have the same
+         * shortname with 152'231'720 users and 50% for 1'264'234'390 users (in accordance with the
+         * birthday paradox). <br>
+         * For a 10 character shortname, those numbers are resp. 4'757'241 and 39'507'325. Using the
+         * subjective point of view of SSB, we assume that 10 characters are enough, with a thought
+         * on keeping it short enough for ease of use.
+         * @param key The public key, which is also the SSB ID.
+         * @return The computed shortname.
          */
         fun id2(key: String): String {
             val shortnameLength = 10
@@ -48,8 +41,11 @@ class HelperFunctions {
             return shortname.toString()
         }
 
+        /**
+         * TODO add documentation
+         */
         @JvmStatic
-        fun ByteArray.toInt32(): Int { // big endian
+        fun ByteArray.toInt32(): Int { // Big endian.
             var v = 0
             for (i in 0..3) {
                 v = (v shl 8) or (this[i].toInt() and 0xFF)
@@ -57,8 +53,11 @@ class HelperFunctions {
             return v
         }
 
+        /**
+         * TODO add documentation
+         */
         @JvmStatic
-        fun Int.toByteArray(): ByteArray { // big endian
+        fun Int.toByteArray(): ByteArray { // Big endian.
             val a = ByteArray(4)
             var v = this
             for (i in 3 downTo 0) {
@@ -68,6 +67,9 @@ class HelperFunctions {
             return a
         }
 
+        /**
+         * TODO add documentation
+         */
         @JvmStatic
         fun String.decodeHex(): ByteArray {
             check(length % 2 == 0) { "Must have an even length" }
@@ -78,25 +80,35 @@ class HelperFunctions {
         }
 
         /**
-         * Extract the public key from the log ID
+         * Extract the public key from the log ID. Only works for IDs, but not msg keys or blob
+         * hashes.
          */
         @JvmStatic
-        fun String.deRef(): ByteArray { // only works for IDs, but not msg keys or blob hashes
+        fun String.deRef(): ByteArray { //
             // Log.d("deRef", "<" + this + ">")
             val s = this.slice(1..this.lastIndex).removeSuffix(".ed25519")
             return Base64.decode(s, Base64.NO_WRAP)
         }
 
+        /**
+         * TODO add documentation
+         */
         @JvmStatic
         fun ByteArray.toHex(): String = joinToString("") { b ->
             "%02x".format(b)
         }
 
+        /**
+         * TODO add documentation
+         */
         @JvmStatic
         fun ByteArray.toBase64(): String {
             return Base64.encodeToString(this, Base64.NO_WRAP)
         }
 
+        /**
+         * TODO add documentation
+         */
         @JvmStatic
         fun ByteArray.utf8(): String {
             return this.toString(Charsets.UTF_8)
@@ -105,9 +117,16 @@ class HelperFunctions {
     }
 }
 
-class Json_PP() { // pretty printing for JSON output
-    var output = ""
+/**
+ * This class is responsible for producing pretty strings for printing JSON objects
+ * TODO add documentation
+ */
+class JSONPrettyPrint {
+    private var output = ""
 
+    /**
+     * TODO add documentation
+     */
     fun makePretty(str: String): String {
         output = ""
         // val todo =
@@ -117,6 +136,9 @@ class Json_PP() { // pretty printing for JSON output
         return output
     }
 
+    /**
+     * TODO add documentation
+     */
     private fun skipWhite(s: String): String {
         var offs = 0
         while (s[offs] == ' ' || s[offs] == '\t' || s[offs] == '\n')
@@ -124,6 +146,9 @@ class Json_PP() { // pretty printing for JSON output
         return s.slice(offs..s.lastIndex)
     }
 
+    /**
+     * TODO add documentation
+     */
     private fun pp(lev: Int, str: String): String { // JSON pretty printing
         var s = skipWhite(str)
         if (s[0] == '{') {
@@ -213,11 +238,11 @@ class Json_PP() { // pretty printing for JSON output
             output += "false"
             return s.slice(5..s.lastIndex)
         }
-        if (s[0] >= '0' && s[0] <= '9') {
+        if (s[0] in '0'..'9') {
             var offs = 0
-            while ((s[offs] >= '0' && s[offs] <= '9') || s[offs] == '.')
+            while ((s[offs] in '0'..'9') || s[offs] == '.')
                 offs++
-            output += s.slice(0..offs - 1)
+            output += s.slice(0 until offs)
             return s.slice(offs..s.lastIndex)
         }
         return "!!??"

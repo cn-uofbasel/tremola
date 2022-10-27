@@ -15,3 +15,6 @@
 .cxx
 local.properties
 *~
+/app/hs_err_pid6659.log
+/app/hs_err_pid6769.log
+/.idea/inspectionProfiles/Project_Default.xml

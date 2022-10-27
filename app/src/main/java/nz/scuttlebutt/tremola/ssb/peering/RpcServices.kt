@@ -175,7 +175,7 @@ class RpcServices(val tremolaState: TremolaState) {
         // only pass on to application layer if new?
         // if (evnt.pri == null) return // only interested in private chat msgs ?
         // logDAO.add(evnt) is done in the rx_event() function
-        tremolaState.wai.rx_event(evnt)
+        tremolaState.wai.rxEvent(evnt)
     }
 
     fun handleEBTmsg(rpcNr: Int, bodyString: String, rawEvent: ByteArray) {

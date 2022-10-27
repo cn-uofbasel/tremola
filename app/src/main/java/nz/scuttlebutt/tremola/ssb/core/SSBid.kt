@@ -8,7 +8,7 @@ import org.json.JSONObject
 
 import nz.scuttlebutt.tremola.ssb.core.Crypto.Companion.signDetached
 import nz.scuttlebutt.tremola.utils.HelperFunctions.Companion.toBase64
-import nz.scuttlebutt.tremola.utils.Json_PP
+import nz.scuttlebutt.tremola.utils.JSONPrettyPrint
 
 /**
  * Public/private key SSB identity.
@@ -16,11 +16,17 @@ import nz.scuttlebutt.tremola.utils.Json_PP
  */
 class SSBid { // ed25519
 
+    /**
+     * TODO Add documentation.
+     */
     constructor(secret: ByteArray, public: ByteArray) {
         signingKey = secret
         verifyKey = public
     }
 
+    /**
+     * TODO Add documentation.
+     */
     constructor(key: ByteArray) {
         if (key.size == Sign.ED25519_PUBLICKEYBYTES) {
             signingKey = null
@@ -32,16 +38,25 @@ class SSBid { // ed25519
         }
     }
 
+    /**
+     * TODO Add documentation.
+     */
     constructor(str: String) {
         val s = str.slice(1..str.lastIndex).removeSuffix(".ed25519")
         verifyKey = Base64.decode(s, Base64.NO_WRAP)
     }
 
+    /**
+     * TODO Add documentation.
+     */
     constructor(k: KeyPair) {
         signingKey = k.secretKey.asBytes
         verifyKey = k.publicKey.asBytes
     }
 
+    /**
+     * TODO Add documentation.
+     */
     constructor() { // generate new ID
         val keypair = lazySodiumInst.cryptoSignKeypair()
         signingKey = keypair.secretKey.asBytes
@@ -54,17 +69,24 @@ class SSBid { // ed25519
     /** Public key i.e., the SSB ID proper */
     var verifyKey: ByteArray
 
+    /**
+     * TODO Add documentation.
+     */
     private val lazySodiumInst = Crypto.lazySodiumInst
 
     // ------------------------------------------------------------------------
 
     /**
      * Return the public key in the form of identity
+     * TODO Add @param descriptions.
      */
     fun toRef(): String {
         return "@" + verifyKey.toBase64() + ".ed25519"
     }
 
+    /**
+     * TODO Add documentation.
+     */
     fun toExportString(): String? {
         if (signingKey == null) return null
         val s = Base64.encode(signingKey, Base64.NO_WRAP).decodeToString()
@@ -73,6 +95,7 @@ class SSBid { // ed25519
 
     /**
      * Sign the data with own private key, returning the signature.
+     * TODO Add @param and @return documentation.
      */
     fun sign(data: ByteArray): ByteArray {
         val signature = ByteArray(Sign.BYTES)
@@ -84,23 +107,33 @@ class SSBid { // ed25519
     /**
      * Verify that the signature comes from self.
      * For other signatories, see {@link Crypto.Companion.verifySignDetached}
+     * TODO Add @param and @return documentation.
      */
     fun verify(signature: ByteArray, data: ByteArray): Boolean {
         return lazySodiumInst.cryptoSignVerifyDetached(signature, data, data.size, verifyKey)
     }
 
+    /**
+     * TODO Add documentation.
+     */
     private fun ed25519PktoCurve(pk: ByteArray): ByteArray {
         val c = ByteArray(Sign.CURVE25519_PUBLICKEYBYTES)
         lazySodiumInst.convertPublicKeyEd25519ToCurve25519(c, pk)
         return c
     }
 
+    /**
+     * TODO Add documentation.
+     */
     private fun ed25519SktoCurve(sk: ByteArray): ByteArray {
         val c = ByteArray(Sign.CURVE25519_SECRETKEYBYTES)
         lazySodiumInst.convertSecretKeyEd25519ToCurve25519(c, sk)
         return c
     }
 
+    /**
+     * TODO Add documentation.
+     */
     fun deriveSharedSecretAb(publicKey: ByteArray): ByteArray {
         val curve_sk = ed25519SktoCurve(signingKey!!)
         val shared = ByteArray(32)
@@ -108,6 +141,9 @@ class SSBid { // ed25519
         return shared
     }
 
+    /**
+     * TODO Add documentation.
+     */
     fun encryptPrivateMessage(message: String, recps: List<ByteArray>): String {
         val txt = message.encodeToByteArray()
         val nonce = SecureRandom().generateSeed(24)
@@ -131,6 +167,9 @@ class SSBid { // ed25519
         return Base64.encodeToString(total, Base64.NO_WRAP) + ".box"
     }
 
+    /**
+     * TODO Add documentation.
+     */
     fun decryptPrivateMessage(message: String): ByteArray? {
         val raw = Base64.decode(message.removeSuffix(".box"), Base64.NO_WRAP)
         val nonce = raw.sliceArray(0..23)
@@ -152,6 +191,9 @@ class SSBid { // ed25519
         return null
     }
 
+    /**
+     * TODO Add documentation.
+     */
     fun formatEvent(
         prev: String?, seq: Int, auth: String, ts: String,
         hash: String, cont: Any, sig: ByteArray?
@@ -172,9 +214,12 @@ class SSBid { // ed25519
             estr += ",\n  \"signature\": \"{sig}\"\n}"
         else
             estr += "\n}"
-        return Json_PP().makePretty(estr)
+        return JSONPrettyPrint().makePretty(estr)
     }
 
+    /**
+     * TODO Add documentation.
+     */
     fun signSSBEvent(prev: String?, seq: Int, content: Any): String {
         val estr = formatEvent(
             prev, seq, this.toRef(), System.currentTimeMillis().toString(),

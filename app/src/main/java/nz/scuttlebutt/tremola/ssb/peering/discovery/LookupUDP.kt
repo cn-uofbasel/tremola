@@ -60,7 +60,7 @@ class LookupUDP(
         active = true
         while (active) {
             try {
-                (context as MainActivity).lookup_socket!!.receive(ingram)
+                (context as MainActivity).lookupSocket!!.receive(ingram)
             } catch (e: Exception) {
                 synchronized(lock) {
                     try {

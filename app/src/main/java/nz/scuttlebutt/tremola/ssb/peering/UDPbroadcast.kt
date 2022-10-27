@@ -58,13 +58,13 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
             myMark = "net:${formatIpAddress(myAddr)}:${myTcpPort}~shs:" +
                     Base64.encodeToString(publicKey, Base64.NO_WRAP)
             val buf = myMark!!.encodeToByteArray()
-            return DatagramPacket(buf, buf.size, bcastAddr, Constants.SSB_IPV4_UDPPORT)
+            return DatagramPacket(buf, buf.size, bcastAddr, Constants.SSB_IPV4_UDP_PORT)
         }
 
         while (true) {
             try {
                 val datagramPacket = mkDgram()
-                val socket = context.broadcast_socket
+                val socket = context.broadcastSocket
                 socket?.send(datagramPacket)
                 // blocking?? Log.d("beacon sock", "bound=${s?.isBound}, ${s?.localAddress}/${s?.port}/${s?.localPort} brcast${s?.broadcast}")
                 Log.d("beacon", "sent ${myMark}")
@@ -104,7 +104,7 @@ class UDPbroadcast(val context: MainActivity, val wai: WebAppInterface?) {
             // val s = context.broadcast_socket
             // blocks?? Log.d("listen", "${s}, ports=${s?.port}/${s?.localPort} closed=${s?.isClosed} bound=${s?.isBound}")
             try {
-                context.broadcast_socket?.receive(ingram)
+                context.broadcastSocket?.receive(ingram)
             } catch (e: Exception) {
                 // Log.d("Broadcast listen", "e=${e}, bsock=${context.broadcast_socket}")
                 sleep(UDP_BROADCAST_INTERVAL) // wait for better conditions

@@ -124,7 +124,7 @@ file src/main/java/nz/scuttlebutt/tremola/WebAppInterface.kt.
 In the `when` loop (if you don't know kotlin, think of it as an alternative of `switch`), you can add an element that
 handle your specific case.
 
-Tip: use the Logger for debuging. `Log.d` is for debug, `Log.e` for errors (appears in red, which might be useful), etc.
+Tip: use the Logger for debugging. `Log.d` is for debug, `Log.e` for errors (appears in red, which might be useful), etc.
 
 ### Send a reply from backend
 

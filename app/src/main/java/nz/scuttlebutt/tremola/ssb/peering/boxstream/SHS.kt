@@ -14,7 +14,7 @@ import nz.scuttlebutt.tremola.ssb.core.SSBid
 
 abstract class SHS( // state for SSB Secure Hand Shake
     val myId: SSBid,
-    val networkIdentifier: ByteArray = Constants.SSB_NETWORKIDENTIFIER
+    val networkIdentifier: ByteArray = Constants.SSB_NETWORK_IDENTIFIER
 ) {
     protected val lazySodium = LazySodiumAndroid(SodiumAndroid(), StandardCharsets.UTF_8)
 
