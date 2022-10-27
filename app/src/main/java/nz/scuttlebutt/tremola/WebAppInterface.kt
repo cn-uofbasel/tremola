@@ -154,6 +154,7 @@ class WebAppInterface(
                 tremolaState.logDAO.wipe()
                 tremolaState.contactDAO.wipe()
                 tremolaState.pubDAO.wipe()
+                tremolaState.doubleRatchetList.wipe()
                 tremolaState.idStore.setNewIdentity(null) // creates new identity
                 // eval("b2f_initialize(\"${tremolaState.idStore.identity.toRef()}\")")
                 // FIXME: Should kill all active connections and if possible the app itself

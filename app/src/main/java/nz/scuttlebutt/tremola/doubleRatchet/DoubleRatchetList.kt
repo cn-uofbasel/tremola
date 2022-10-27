@@ -80,6 +80,15 @@ class DoubleRatchetList(private val context: Context) {
     }
 
     /**
+     * This function is called when the panic button is pressed. It deletes all saved key-value
+     * pairs.
+     * TODO Make this resistant to forensic analysis.
+     */
+    fun wipe() {
+        list.clear()
+    }
+
+    /**
      * Takes the current state of the DoubleRatchetList and returns a JSON string representing it.
      * @return The JSON string of the list. Might be the empty string if the list was empty.
      */
